@@ -97,6 +97,11 @@ typedef struct {
     int eco2;  // Equivalent CO2 in ppm
     int tvoc;  // Total Volatile Organic Compounds in ppb
     
+    // SCD41 CO2 sensor data
+    uint16_t co2;  // CO2 concentration in ppm
+    bool co2_available; // Whether the SCD41 sensor is connected
+    char co2_quality_description[15]; // Quality description based on CO2 levels
+    
     // WiFi data
     char ssid[33];
     int rssi;

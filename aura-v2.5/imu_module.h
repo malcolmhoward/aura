@@ -30,14 +30,42 @@
 #include <ArduinoJson.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
-#include <Adafruit_ICM20948.h>
-#include <Adafruit_ICM20X.h>
-#include <Adafruit_AHRS.h>
 #include <Adafruit_Sensor.h>
+
+// Uncomment only one of these to select your IMU sensor
+//#define USE_ICM20948
+#define USE_BNO086
+
+// Compile-time check to ensure only one sensor is selected
+#if defined(USE_ICM20948) && defined(USE_BNO086)
+    #error "Only one IMU sensor can be enabled at a time. Please choose either USE_ICM20948 or USE_BNO086, not both."
+#endif
+
+#if !defined(USE_ICM20948) && !defined(USE_BNO086)
+    #error "No IMU sensor selected. Please enable either USE_ICM20948 or USE_BNO086."
+#endif
+
+// Include the necessary headers based on selection
+#ifdef USE_ICM20948
+  #include <Adafruit_ICM20948.h>
+  #include <Adafruit_ICM20X.h>
+  #include <Adafruit_AHRS.h>
+#endif
+
+#ifdef USE_BNO086
+  #include <Adafruit_BNO08x.h>
+#endif
 
 #ifdef ENABLE_MQTT
 #include <ArduinoMqttClient.h>
 #endif
+
+// IMU Pins for BNO086
+#define BNO086_INT 2   // INT pin (RX pin on ESP32-S3)
+#define BNO086_RST 1   // RST pin (TX pin on ESP32-S3)
+
+// Filter update rate
+#define FILTER_UPDATE_RATE_HZ 100
 
 // Function prototypes
 void setupIMU();

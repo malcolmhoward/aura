@@ -33,8 +33,8 @@
 #include <Adafruit_Sensor.h>
 
 // Uncomment only one of these to select your sensor
-#define USE_BME680
-//#define USE_ENS160_AHT21
+//#define USE_BME680
+#define USE_ENS160_AHT21
 
 // Compile-time check to ensure only one sensor is selected
 #if defined(USE_BME680) && defined(USE_ENS160_AHT21)
@@ -44,6 +44,9 @@
 #if !defined(USE_BME680) && !defined(USE_ENS160_AHT21)
     #error "No environmental sensor selected. Please enable either USE_BME680 or USE_ENS160_AHT21."
 #endif
+
+// Enable SCD41 CO2 sensor support
+#define USE_SCD41
 
 #ifdef USE_BME680
 #include <Adafruit_BME680.h>
@@ -56,6 +59,17 @@
 // Calibration values for AHT21
 #define AHT21_TEMP_OFFSET 0.0f  // Calibration offset in degrees C (adjust as needed)
 #define AHT21_HUM_OFFSET 0.0f    // Calibration offset for humidity (adjust as needed)
+#endif
+
+#ifdef USE_SCD41
+#include <SensirionI2cScd4x.h> // Sensirion SCD4x library for SCD41 CO2 sensor
+
+// CO2 thresholds (in ppm)
+#define CO2_EXCELLENT 600
+#define CO2_GOOD 800
+#define CO2_FAIR 1000
+#define CO2_POOR 1500
+// Above 1500 ppm is considered "very poor"
 #endif
 
 #ifdef ENABLE_MQTT
@@ -74,5 +88,8 @@ void setAHT21HumOffset(float offset);
 float getAHT21TempOffset();
 float getAHT21HumOffset();
 #endif
+
+// Get a CO2 quality description based on ppm value
+const char* getCO2QualityDescription(uint16_t co2_ppm);
 
 #endif // ENVIRO_MODULE_H

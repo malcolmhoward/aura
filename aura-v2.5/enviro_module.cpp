@@ -65,6 +65,20 @@ float getAHT21HumOffset() {
 }
 #endif
 
+#ifdef USE_SCD41
+SensirionI2cScd4x scd4x; // SCD41 CO2 sensor
+bool scd41_available = false;
+
+// Return descriptive quality string based on CO2 reading
+const char* getCO2QualityDescription(uint16_t co2_ppm) {
+  if (co2_ppm < CO2_EXCELLENT) return "Excellent";
+  else if (co2_ppm < CO2_GOOD) return "Good";
+  else if (co2_ppm < CO2_FAIR) return "Fair";
+  else if (co2_ppm < CO2_POOR) return "Poor";
+  else return "Very Poor";
+}
+#endif
+
 #ifdef ENABLE_MQTT
 extern MqttClient mqttClient;
 extern const char topic[];
@@ -114,6 +128,79 @@ void setupEnvironmental() {
     delay(2000);
   }
 #endif
+
+// Revised SCD41 initialization for setupEnvironmental()
+
+#ifdef USE_SCD41
+  // SCD41 setup following manufacturer's recommended initialization sequence
+  LOG_PRINTLN("Initializing SCD41...");
+  scd4x.begin(Wire, SCD41_I2C_ADDR_62);
+  
+  // Ensure sensor is in clean state by proper initialization sequence
+  delay(30); // Short delay after begin
+  
+  uint16_t error = scd4x.wakeUp();
+  if (error != 0) {
+    LOG_PRINT("Error during wakeUp(): ");
+    LOG_PRINTLN(String(error));
+  }
+  
+  error = scd4x.stopPeriodicMeasurement();
+  if (error != 0) {
+    LOG_PRINT("Error during stopPeriodicMeasurement(): ");
+    LOG_PRINTLN(String(error));
+  }
+  
+  error = scd4x.reinit();
+  if (error != 0) {
+    LOG_PRINT("Error during reinit(): ");
+    LOG_PRINTLN(String(error));
+  }
+  
+  // Read serial number to verify communication
+  uint64_t serialNumber = 0;
+  error = scd4x.getSerialNumber(serialNumber);
+  
+  if (error != 0) {
+    LOG_PRINTLN("Could not read SCD41 serial number, sensor might not be present");
+    scd41_available = false;
+  } else {
+    LOG_PRINT("SCD41 found! Serial: ");
+    // Print serial number in hex format
+    char serialStr[20];
+    sprintf(serialStr, "0x%08X%08X", 
+            (uint32_t)(serialNumber >> 32), 
+            (uint32_t)(serialNumber & 0xFFFFFFFF));
+    LOG_PRINTLN(serialStr);
+    
+    // Set additional configuration if needed
+    // For example, scd4x.setAmbientPressure() if needed
+    
+    // Start periodic measurements
+    error = scd4x.startPeriodicMeasurement();
+    if (error != 0) {
+      LOG_PRINT("Error starting periodic measurement: ");
+      LOG_PRINTLN(String(error));
+      scd41_available = false;
+    } else {
+      LOG_PRINTLN("SCD41 periodic measurement started");
+      scd41_available = true;
+    }
+  }
+ 
+  // Initialize the CO2 availability in display data
+  if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+    display_data.co2_available = scd41_available;
+    
+    // Default values if sensor not available
+    if (!scd41_available) {
+      display_data.co2 = 0;
+      strcpy(display_data.co2_quality_description, "Unavailable");
+    }
+    
+    xSemaphoreGive(displayMutex);
+  }
+#endif
 }
 
 // Environmental sensor task runs every 5 seconds
@@ -134,6 +221,14 @@ void enviroTask(void *pvParameters) {
   
 #ifdef USE_BME680
   unsigned long bmeEndTime = 0L;
+#endif
+
+#ifdef USE_SCD41
+  uint16_t co2_ppm = 0;
+  float temp_scd41 = 0.0;
+  float humidity_scd41 = 0.0;
+  bool dataReady = false;
+  uint16_t error = 0;
 #endif
 
   JsonDocument doc;
@@ -237,6 +332,57 @@ void enviroTask(void *pvParameters) {
     }
 #endif
 
+#ifdef USE_SCD41
+    /* Read SCD41 CO2 sensor (if available) */
+    if (scd41_available) {
+      // Check if new data is available
+      bool dataReady = false;
+      uint16_t error = scd4x.getDataReadyStatus(dataReady);
+      
+      if (error != 0) {
+        LOG_PRINT("Error checking data ready status: ");
+        LOG_PRINTLN(String(error));
+      } else if (dataReady) {
+        // Read measurement
+        uint16_t co2_ppm = 0;
+        float temp_scd41 = 0.0;
+        float humidity_scd41 = 0.0;
+        
+        error = scd4x.readMeasurement(co2_ppm, temp_scd41, humidity_scd41);
+        
+        if (error != 0) {
+          LOG_PRINT("Error reading measurement: ");
+          LOG_PRINTLN(String(error));
+        } else if (co2_ppm != 0) {  // CO2 of 0ppm indicates an invalid reading
+          // Print results in proper format
+          LOG_PRINT("CO2 concentration [ppm]: ");
+          LOG_PRINTLN(String(co2_ppm));
+          LOG_PRINT("Temperature [°C]: ");
+          LOG_PRINTLN(String(temp_scd41));
+          LOG_PRINT("Relative Humidity [%RH]: ");
+          LOG_PRINTLN(String(humidity_scd41));
+          
+          // We now have valid CO2 data
+          // Update display data
+          if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+            display_data.co2 = co2_ppm;
+            strncpy(display_data.co2_quality_description, 
+                   getCO2QualityDescription(co2_ppm), 
+                   sizeof(display_data.co2_quality_description));
+            xSemaphoreGive(displayMutex);
+          }
+          
+          // Option: If using SCD41 temperature and humidity is preferred
+          // over the AHT21 values, you could use those instead:
+          /*
+          temperature = temp_scd41;
+          humidity = humidity_scd41;
+          */
+        }
+      }
+    }
+#endif
+
     /* Prepare data for sending */
     doc["device"] = "Enviro";
     doc["temp_c"] = temperature;
@@ -254,6 +400,19 @@ void enviroTask(void *pvParameters) {
     doc["pressure_hpa"] = pressure;
     doc["tvoc_ppb"] = gas_resistance; // Using the TVOC value
     doc["eco2_ppm"] = ens160.geteCO2();
+#endif
+
+#ifdef USE_SCD41
+    // Add SCD41 data if available
+    if (scd41_available && co2_ppm != 0) {
+      doc["co2_ppm"] = co2_ppm;
+      doc["co2_quality"] = getCO2QualityDescription(co2_ppm);
+      
+      // If we have both eCO2 and real CO2, add the difference
+      #ifdef USE_ENS160_AHT21
+      doc["co2_eco2_diff"] = (int)co2_ppm - ens160.geteCO2();
+      #endif
+    }
 #endif
 
     doc["air_quality"] = air_quality_score;
@@ -317,6 +476,17 @@ void enviroTask(void *pvParameters) {
       // Update ENS160 specific data for display
       display_data.eco2 = ens160.geteCO2();
       display_data.tvoc = ens160.getTVOC();
+#endif
+
+#ifdef USE_SCD41
+      // Update SCD41 data if available
+      if (scd41_available && co2_ppm != 0) {
+        display_data.co2 = co2_ppm;
+        // Update CO2 quality description
+        strncpy(display_data.co2_quality_description, 
+                getCO2QualityDescription(co2_ppm), 
+                sizeof(display_data.co2_quality_description));
+      }
 #endif
       
       xSemaphoreGive(displayMutex);

@@ -145,7 +145,7 @@ void displayIMUPage(void) {
         tft.print("W");
         
         // Page indicator
-        tft.setCursor(TFT_WIDTH - 60, TFT_HEIGHT - 15);
+        tft.setCursor(10, TFT_HEIGHT - 15);
         tft.setTextColor(COLOR_TEXT);
         tft.print("Page ");
         tft.print(current_page + 1);
@@ -315,7 +315,8 @@ void displayGPSPage(void) {
         tft.print("100");
         
         // Page indicator
-        tft.setCursor(TFT_WIDTH - 60, TFT_HEIGHT - 15);
+        tft.setCursor(10, TFT_HEIGHT - 15);
+        tft.setTextColor(COLOR_TEXT);
         tft.print("Page ");
         tft.print(current_page + 1);
         tft.print("/");
@@ -497,6 +498,11 @@ void displayEnviroPage(void) {
     static int prev_tvoc = -1;
     #endif
     
+    // Additional values for SCD41 CO2 sensor
+    static uint16_t prev_co2 = 0;
+    static bool prev_co2_available = false;
+    static char prev_co2_desc[15] = "";
+    
     // Draw static elements on first load
     if (enviro_page_first_draw) {
         // Clear screen
@@ -534,11 +540,19 @@ void displayEnviroPage(void) {
         tft.print("TVOC:");
         #endif
         
-        tft.setCursor(10, 85);
+        // CO2 label if SCD41 is available
+        if (display_data.co2_available) {
+            tft.setCursor(10, 85);
+            tft.print("CO2:");
+        }
+        
+        // Air Quality label (moved down if CO2 is shown)
+        tft.setCursor(10, display_data.co2_available ? 100 : 85);
         tft.print("Air Quality:");
         
-        // Page indicator
-        tft.setCursor(TFT_WIDTH - 60, TFT_HEIGHT - 15);
+        // Page indicator moved to far left
+        tft.setCursor(10, TFT_HEIGHT - 15);
+        tft.setTextColor(COLOR_TEXT);
         tft.print("Page ");
         tft.print(current_page + 1);
         tft.print("/");
@@ -557,6 +571,11 @@ void displayEnviroPage(void) {
         prev_eco2 = -1;
         prev_tvoc = -1;
         #endif
+        
+        // Force initial CO2 update
+        prev_co2 = 0;
+        prev_co2_available = !display_data.co2_available; // Force refresh
+        strcpy(prev_co2_desc, "");
     }
     
     // Only update temperature if changed
@@ -617,12 +636,50 @@ void displayEnviroPage(void) {
     }
     #endif
     
+    // Update CO2 readings if available and changed
+    if (display_data.co2_available && 
+        (prev_co2 != display_data.co2 || 
+         prev_co2_available != display_data.co2_available || 
+         strcmp(prev_co2_desc, display_data.co2_quality_description) != 0)) {
+        
+        // Clear the CO2 value area
+        tft.fillRect(50, 85, 180, 10, COLOR_BG);
+        tft.setCursor(50, 85);
+        
+        // Choose color based on CO2 quality
+        uint16_t co2_color;
+        if (strcmp(display_data.co2_quality_description, "Excellent") == 0) {
+            co2_color = COLOR_GOOD;
+        } else if (strcmp(display_data.co2_quality_description, "Good") == 0) {
+            co2_color = ST77XX_CYAN;
+        } else if (strcmp(display_data.co2_quality_description, "Fair") == 0) {
+            co2_color = ST77XX_YELLOW;
+        } else if (strcmp(display_data.co2_quality_description, "Poor") == 0) {
+            co2_color = ST77XX_ORANGE;
+        } else {
+            co2_color = COLOR_ALERT;
+        }
+        
+        tft.setTextColor(co2_color);
+        tft.print(display_data.co2);
+        tft.print(" ppm (");
+        tft.print(display_data.co2_quality_description);
+        tft.print(")");
+        
+        prev_co2 = display_data.co2;
+        prev_co2_available = display_data.co2_available;
+        strcpy(prev_co2_desc, display_data.co2_quality_description);
+    }
+    
     // Only update air quality if changed
     if (prev_air_quality != display_data.air_quality || 
         strcmp(prev_aq_desc, display_data.air_quality_description) != 0) {
         
-        tft.fillRect(120, 85, 120, 10, COLOR_BG);
-        tft.setCursor(120, 85);
+        // Adjust y position based on whether CO2 is displayed
+        int aq_y = display_data.co2_available ? 100 : 85;
+        
+        tft.fillRect(120, aq_y, 120, 10, COLOR_BG);
+        tft.setCursor(120, aq_y);
         
         // Set color based on air quality
         uint16_t aq_color;
@@ -644,25 +701,18 @@ void displayEnviroPage(void) {
         tft.print(display_data.air_quality_description);
         tft.print(")");
         
-        // Redraw air quality bar
-        int bar_width = 200;
-        int bar_height = 10;
-        int bar_x = 20;
-        int bar_y = 100;
-        
-        // Clear old bar
-        tft.fillRect(bar_x, bar_y, bar_width, bar_height, COLOR_BG);
-        
-        // Draw outline
-        tft.drawRect(bar_x, bar_y, bar_width, bar_height, COLOR_TEXT);
-        
-        // Fill based on air quality (0-100)
-        int fill_width = (display_data.air_quality / 100.0) * bar_width;
-        tft.fillRect(bar_x, bar_y, fill_width, bar_height, aq_color);
-        
+        // Update previous values tracking
         prev_air_quality = display_data.air_quality;
         strcpy(prev_aq_desc, display_data.air_quality_description);
     }
+    
+    // Page indicator moved to far left
+    tft.setCursor(10, TFT_HEIGHT - 15);
+    tft.setTextColor(COLOR_TEXT);
+    tft.print("Page ");
+    tft.print(current_page + 1);
+    tft.print("/");
+    tft.print(PAGE_COUNT);
 }
 
 // Display WiFi status page with minimal flicker
@@ -704,7 +754,8 @@ void displayWiFiPage(void) {
         tft.print("RSSI:");
         
         // Page indicator
-        tft.setCursor(TFT_WIDTH - 60, TFT_HEIGHT - 15);
+        tft.setCursor(10, TFT_HEIGHT - 15);
+        tft.setTextColor(COLOR_TEXT);
         tft.print("Page ");
         tft.print(current_page + 1);
         tft.print("/");
