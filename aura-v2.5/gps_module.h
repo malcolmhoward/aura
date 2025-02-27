@@ -34,6 +34,7 @@
 
 // Function prototypes
 void setupGPS();
+void attemptGPSReinitialization();
 void gpsTask(void *pvParameters);
 
-#endif // GPS_MODULE_H
+#endif  // GPS_MODULE_H

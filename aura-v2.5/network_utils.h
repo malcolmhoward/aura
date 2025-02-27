@@ -49,4 +49,4 @@ bool reconnectSocket(WiFiClient* wifiClient, Adafruit_NeoPixel* pixels);
 
 void updateWiFiDisplayData(WiFiClient* wifiClient, Adafruit_NeoPixel* pixels);
 
-#endif // NETWORK_UTILS_H
+#endif  // NETWORK_UTILS_H

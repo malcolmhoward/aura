@@ -59,15 +59,15 @@
 
 // NeoPixel
 // PIN_NEOPIXEL and NEOPIXEL_POWER are defined
-#define NUMPIXELS     1
+#define NUMPIXELS 1
 Adafruit_NeoPixel pixels(NUMPIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
 // WiFi
-#define CONN_RETRY_ATTEMPTS  10
+#define CONN_RETRY_ATTEMPTS 10
 
 ///////please enter your sensitive data in the Secret tab/arduino_secrets.h
-char ssid[] = SECRET_SSID;    // your network SSID (name)
-char pass[] = SECRET_PASS;    // your network password (use for WPA, or use as key for WEP)
+char ssid[] = SECRET_SSID;  // your network SSID (name)
+char pass[] = SECRET_PASS;  // your network password (use for WPA, or use as key for WEP)
 
 WiFiClient wifiClient;
 
@@ -83,7 +83,7 @@ void setup() {
   int wifiRetries = 0;
 
   Serial.begin(115200);
-  while (!Serial && (millis() - startTime < 2000)) { // Wait up to 2 seconds for Serial to connect
+  while (!Serial && (millis() - startTime < 2000)) {  // Wait up to 2 seconds for Serial to connect
     delay(10);
   }
 
@@ -95,16 +95,29 @@ void setup() {
   // NeoPixel
   pixels.begin();
   pixels.clear();
-  
+
   // Initialize I2C with specified pins and speed
   if (!Wire.begin(SDA_PIN, SCL_PIN, 350000)) {
     LOG_PRINTLN("I2C initialization failed!");
   } else {
     LOG_PRINTLN("I2C initialization success!");
   }
-  
+
   // Initialize the display
   setupDisplay();
+
+  // Initialize display data availability flags before sensor initialization
+  if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+    display_data.imu_available = false;
+    display_data.gps_available = false;
+    display_data.temp_available = false;
+    display_data.humidity_available = false;
+    display_data.pressure_available = false;
+    display_data.air_quality_available = false;
+    display_data.ens160_available = false;
+    // display_data.co2_available is already initialized in enviro_module.cpp
+    xSemaphoreGive(displayMutex);
+  }
 
   // Initialize components
   setupIMU();
@@ -117,73 +130,77 @@ void setup() {
   // Initialize networking
   setupNetworking(ssid, pass, CONN_RETRY_ATTEMPTS, &wifiClient, &pixels);
 
-#if 1
   // Create tasks
   if (xTaskCreatePinnedToCore(
-      gpsTask,             // Task function
-      "GPS Task",          // Name of the task
-      10000,               // Stack size (in words)
-      NULL,                // Task input parameter
-      1,                   // Priority of the task
-      &gpsTaskHandle,      // Task handle
-      1                    // Core 1
-  ) != pdPASS) {
+        gpsTask,         // Task function
+        "GPS Task",      // Name of the task
+        10000,           // Stack size (in words)
+        NULL,            // Task input parameter
+        1,               // Priority of the task
+        &gpsTaskHandle,  // Task handle
+        1                // Core 1
+        )
+      != pdPASS) {
     LOG_PRINTLN("Failed to create GPS Task");
   }
-#endif
+
   if (xTaskCreatePinnedToCore(
-      imuTask,             // Task function
-      "IMU Task",          // Name of the task
-      10000,               // Stack size (in words)
-      NULL,                // Task input parameter
-      1,                   // Priority of the task
-      &imuTaskHandle,      // Task handle
-      0                    // Core 0
-  ) != pdPASS) {
+        imuTask,         // Task function
+        "IMU Task",      // Name of the task
+        10000,           // Stack size (in words)
+        NULL,            // Task input parameter
+        1,               // Priority of the task
+        &imuTaskHandle,  // Task handle
+        0                // Core 0
+        )
+      != pdPASS) {
     LOG_PRINTLN("Failed to create IMU Task");
   }
 
   if (xTaskCreatePinnedToCore(
-      enviroTask,          // Task function
-      "Environmental Task", // Name of the task
-      10000,               // Stack size (in words)
-      NULL,                // Task input parameter
-      1,                   // Priority of the task
-      &enviroTaskHandle,   // Task handle
-      0                    // Core 0
-  ) != pdPASS) {
+        enviroTask,            // Task function
+        "Environmental Task",  // Name of the task
+        10000,                 // Stack size (in words)
+        NULL,                  // Task input parameter
+        1,                     // Priority of the task
+        &enviroTaskHandle,     // Task handle
+        0                      // Core 0
+        )
+      != pdPASS) {
     LOG_PRINTLN("Failed to create Environmental Task");
   }
 
   if (xTaskCreatePinnedToCore(
-      displayTask,          // Task function
-      "Display Task",       // Name of the task
-      10000,                // Stack size (in words)
-      NULL,                 // Task input parameter
-      1,                    // Priority of the task
-      &displayTaskHandle,   // Task handle
-      0                     // Core 0
-  ) != pdPASS) {
+        displayTask,         // Task function
+        "Display Task",      // Name of the task
+        10000,               // Stack size (in words)
+        NULL,                // Task input parameter
+        1,                   // Priority of the task
+        &displayTaskHandle,  // Task handle
+        0                    // Core 0
+        )
+      != pdPASS) {
     LOG_PRINTLN("Failed to create Display Task");
   }
 
   if (xTaskCreatePinnedToCore(
-      networkTask,          // Task function
-      "Network Task",       // Name of the task
-      10000,                // Stack size (in words)
-      NULL,                 // Task input parameter
-      1,                    // Priority of the task
-      &networkTaskHandle,   // Task handle
-      1                     // Core 1 - run on same core as environmental to separate from other tasks
-  ) != pdPASS) {
-      LOG_PRINTLN("Failed to create Network Task");
+        networkTask,         // Task function
+        "Network Task",      // Name of the task
+        10000,               // Stack size (in words)
+        NULL,                // Task input parameter
+        1,                   // Priority of the task
+        &networkTaskHandle,  // Task handle
+        1                    // Core 1
+        )
+      != pdPASS) {
+    LOG_PRINTLN("Failed to create Network Task");
   }
 }
 
 void loop() {
-    // Just monitor the network connection
-    monitorConnection(&wifiClient, &pixels);
-    
-    // Use a small delay to prevent tight loop
-    vTaskDelay(pdMS_TO_TICKS(100));
+  // Just monitor the network connection
+  monitorConnection(&wifiClient, &pixels);
+
+  // Use a small delay to prevent tight loop
+  vTaskDelay(pdMS_TO_TICKS(100));
 }

@@ -38,11 +38,11 @@
 
 // Compile-time check to ensure only one sensor is selected
 #if defined(USE_BME680) && defined(USE_ENS160_AHT21)
-    #error "Only one environmental sensor can be enabled at a time. Please choose either USE_BME680 or USE_ENS160_AHT21, not both."
+#error "Only one environmental sensor can be enabled at a time. Please choose either USE_BME680 or USE_ENS160_AHT21, not both."
 #endif
 
 #if !defined(USE_BME680) && !defined(USE_ENS160_AHT21)
-    #error "No environmental sensor selected. Please enable either USE_BME680 or USE_ENS160_AHT21."
+#error "No environmental sensor selected. Please enable either USE_BME680 or USE_ENS160_AHT21."
 #endif
 
 // Enable SCD41 CO2 sensor support
@@ -53,16 +53,16 @@
 #endif
 
 #ifdef USE_ENS160_AHT21
-#include <Adafruit_AHTX0.h> // Adafruit AHT20/AHT21 library
-#include <ScioSense_ENS160.h> // ScioSense ENS160 library
+#include <Adafruit_AHTX0.h>    // Adafruit AHT20/AHT21 library
+#include <ScioSense_ENS160.h>  // ScioSense ENS160 library
 
 // Calibration values for AHT21
 #define AHT21_TEMP_OFFSET 0.0f  // Calibration offset in degrees C (adjust as needed)
-#define AHT21_HUM_OFFSET 0.0f    // Calibration offset for humidity (adjust as needed)
+#define AHT21_HUM_OFFSET 0.0f   // Calibration offset for humidity (adjust as needed)
 #endif
 
 #ifdef USE_SCD41
-#include <SensirionI2cScd4x.h> // Sensirion SCD4x library for SCD41 CO2 sensor
+#include <SensirionI2cScd4x.h>  // Sensirion SCD4x library for SCD41 CO2 sensor
 
 // CO2 thresholds (in ppm)
 #define CO2_EXCELLENT 600
@@ -78,7 +78,8 @@
 
 // Function prototypes
 void setupEnvironmental();
-void enviroTask(void *pvParameters);
+void attemptEnviroReinitialization();
+void enviroTask(void* pvParameters);
 float mapFloat(float x, float in_min, float in_max, float out_min, float out_max);
 
 #ifdef USE_ENS160_AHT21
@@ -92,4 +93,4 @@ float getAHT21HumOffset();
 // Get a CO2 quality description based on ppm value
 const char* getCO2QualityDescription(uint16_t co2_ppm);
 
-#endif // ENVIRO_MODULE_H
+#endif  // ENVIRO_MODULE_H

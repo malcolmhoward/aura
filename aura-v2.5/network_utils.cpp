@@ -30,7 +30,7 @@
 // MQTT configuration
 MqttClient mqttClient(*wifiClient);
 String brokerString;
-const char *broker = NULL;
+const char* broker = NULL;
 int port = 1883;
 const char topic[] = "helmet";
 #endif
@@ -58,11 +58,11 @@ void setupNetworking(const char* ssid, const char* pass, int retry_attempts, WiF
   if (wifiRetries == retry_attempts) {
     LOG_PRINTLN("Retry timeout.");
     return;
-  } else {
-    pixels->setPixelColor(0, pixels->Color(0, 255, 0)); // Green on successful connection
-    pixels->show();
   }
-  
+
+  pixels->setPixelColor(0, pixels->Color(0, 255, 0));  // Green on successful connection
+  pixels->show();
+
   LOG_PRINTLN("WiFi connected");
   LOG_PRINTLN("IP address: ");
   LOG_PRINTLN(WiFi.localIP().toString());
@@ -84,9 +84,7 @@ void setupNetworking(const char* ssid, const char* pass, int retry_attempts, WiF
 
 #ifdef ENABLE_MQTT
 void setupMQTT(WiFiClient* wifiClient, Adafruit_NeoPixel* pixels) {
-  // You can provide a unique client ID, if not set the library uses Arduino-millis()
-  // Each client must have a unique client ID
-  // mqttClient.setId("clientId");
+  mqttClient.setId("helmet");
 
   // You can provide a username and password for authentication
   // mqttClient.setUsernamePassword("username", "password");
@@ -101,28 +99,28 @@ void setupMQTT(WiFiClient* wifiClient, Adafruit_NeoPixel* pixels) {
     LOG_PRINT("MQTT connection failed! Error code = ");
     LOG_PRINTLN(mqttClient.connectError());
     return;
-  } else {
-    LOG_PRINTLN("You're connected to the MQTT broker!");
-    LOG_PRINTLN();
-
-    pixels->setPixelColor(0, pixels->Color(0, 0, 255)); // Blue on MQTT success
-    pixels->show();
   }
+
+  LOG_PRINTLN("You're connected to the MQTT broker!");
+  LOG_PRINTLN();
+
+  pixels->setPixelColor(0, pixels->Color(0, 0, 255));  // Blue on MQTT success
+  pixels->show();
 
   mqttClient.setKeepAliveInterval(5);
   mqttClient.setCleanSession(true);
   //mqttClient.setMaxPacketSize(512);
   //mqttClient.setQos(0);
 
-  LOG_PRINT("Subscribing to topic: ");
-  LOG_PRINTLN(topic);
-  LOG_PRINTLN();
+  //LOG_PRINT("Subscribing to topic: ");
+  //LOG_PRINTLN(topic);
+  //LOG_PRINTLN();
 
   // subscribe to a topic
-  // mqttClient.subscribe(topic);
+  //mqttClient.subscribe(topic);
 
   // topics can be unsubscribed using:
-  // mqttClient.unsubscribe(topic);
+  //mqttClient.unsubscribe(topic);
 
   // LOG_PRINT("Waiting for messages on topic: ");
   // LOG_PRINTLN(topic);
@@ -144,51 +142,51 @@ bool reconnectSocket(WiFiClient* wifiClient, Adafruit_NeoPixel* pixels) {
   while (!wifiClient->connect(serverIP, SERVER_PORT)) {
     if (millis() - startAttemptTime > SOCKET_RECONNECT_TIMEOUT_MS) {
       LOG_PRINTLN("Reconnection timeout reached, giving up.");
-      pixels->setPixelColor(0, pixels->Color(0, 255, 0)); // Set to green on failure
+      pixels->setPixelColor(0, pixels->Color(0, 255, 0));  // Set to green on failure
       pixels->show();
-      return false; // Return false if reconnection fails within the timeout period
+      return false;  // Return false if reconnection fails within the timeout period
     }
 
     LOG_PRINTLN("Connection failed, retrying...");
-    delay(1000); // Wait 1 second before retrying
+    delay(1000);  // Wait 1 second before retrying
   }
 
   LOG_PRINTLN("Reconnected to server");
-  pixels->setPixelColor(0, pixels->Color(0, 0, 255)); // Set to blue on success
+  pixels->setPixelColor(0, pixels->Color(0, 0, 255));  // Set to blue on success
   pixels->show();
-  return true; // Return true if reconnection is successful
+  return true;
 }
 #endif
 
 void monitorConnection(WiFiClient* wifiClient, Adafruit_NeoPixel* pixels) {
 #ifdef ENABLE_SOCKET
-    if (!wifiClient->connected()) {
-        pixels->setPixelColor(0, pixels->Color(0, 255, 0));
-        pixels->show();
+  if (!wifiClient->connected()) {
+    pixels->setPixelColor(0, pixels->Color(0, 255, 0)); // Set to red on failure
+    pixels->show();
 
-        // Attempt to reconnect if the client is disconnected
-        if (!reconnectSocket(wifiClient, pixels)) {
-            // Handle failure to reconnect, if necessary
-            LOG_PRINTLN("Failed to reconnect. Entering an error state.");
-        }
+    // Attempt to reconnect if the client is disconnected
+    if (!reconnectSocket(wifiClient, pixels)) {
+      // Handle failure to reconnect, if necessary
+      LOG_PRINTLN("Failed to reconnect. Entering an error state.");
     }
+  }
 #endif
 
-    // Update WiFi status for display
-    updateWiFiDisplayData(wifiClient, pixels);
+  // Update WiFi status for display
+  updateWiFiDisplayData(wifiClient, pixels);
 }
 
 void updateWiFiDisplayData(WiFiClient* wifiClient, Adafruit_NeoPixel* pixels) {
   if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
     display_data.is_connected = (WiFi.status() == WL_CONNECTED);
     display_data.rssi = WiFi.RSSI();
-    
+
     if (display_data.is_connected) {
       strcpy(display_data.ip_address, WiFi.localIP().toString().c_str());
     } else {
       strcpy(display_data.ip_address, "0.0.0.0");
     }
-    
+
     xSemaphoreGive(displayMutex);
   }
 }

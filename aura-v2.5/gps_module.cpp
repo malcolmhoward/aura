@@ -26,21 +26,56 @@
 #include "logger.h"
 #include "display_module.h"
 
-// External dependencies
-extern WiFiClient wifiClient;
-
 // GPS
 SFE_UBLOX_GNSS myGNSS;
 
 void setupGPS() {
   if (myGNSS.begin() == false) {
-    LOG_PRINTLN(F("u-blox GNSS not detected at default I2C address."));
+    LOG_PRINTLN(F("u-blox GNSS not detected at default I2C address - GPS functionality disabled"));
+
+    if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+      display_data.gps_available = false;
+      xSemaphoreGive(displayMutex);
+    }
   } else {
     LOG_PRINTLN("GPS found!");
+
+    if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+      display_data.gps_available = true;
+      xSemaphoreGive(displayMutex);
+    }
+
+    myGNSS.setI2COutput(COM_TYPE_UBX);  //Set the I2C port to output only UBX messages
+    LOG_PRINTLN("GPS initialized.");
+  }
+}
+
+void attemptGPSReinitialization() {
+  // Check if already available
+  bool currently_available = false;
+
+  if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+    currently_available = display_data.gps_available;
+    xSemaphoreGive(displayMutex);
   }
 
-  myGNSS.setI2COutput(COM_TYPE_UBX); //Set the I2C port to output only UBX messages
-  LOG_PRINTLN("GPS initialized.");
+  if (currently_available) return;  // Already working, no need to reinitialize
+
+  LOG_PRINTLN("Attempting to reinitialize GPS...");
+
+  if (myGNSS.begin() == false) {
+    LOG_PRINTLN("GPS reinitialization failed");
+    return;
+  }
+
+  myGNSS.setI2COutput(COM_TYPE_UBX);
+
+  if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+    display_data.gps_available = true;
+    xSemaphoreGive(displayMutex);
+  }
+
+  LOG_PRINTLN("GPS successfully reinitialized!");
 }
 
 // GPS task, pinned to Core 0, runs every 1 second
@@ -53,9 +88,31 @@ void gpsTask(void *pvParameters) {
   float speed_mph = 0.0f;
   JsonDocument doc;
 
+  unsigned long last_reinit_attempt = 0;
+  const unsigned long REINIT_INTERVAL = 60000;  // Try to reinitialize every minute
+  bool is_available = false;
+
   LOG_PRINTLN(F("GPS task started."));
 
   while (true) {
+    // Check if GPS is available
+    if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+      is_available = display_data.gps_available;
+      xSemaphoreGive(displayMutex);
+    }
+
+    if (!is_available) {
+      // Try to reinitialize periodically
+      unsigned long now = millis();
+      if (now - last_reinit_attempt > REINIT_INTERVAL) {
+        attemptGPSReinitialization();
+        last_reinit_attempt = now;
+      }
+
+      vTaskDelay(pdMS_TO_TICKS(1000));  // Sleep longer when GPS not available
+      continue;
+    }
+
     if (myGNSS.getTimeValid()) {
       snprintf(time, 9, "%02d:%02d:%02d", myGNSS.getHour(), myGNSS.getMinute(), myGNSS.getSecond());
     } else {
@@ -73,16 +130,16 @@ void gpsTask(void *pvParameters) {
     speed_mmps = myGNSS.getGroundSpeed();
     speed_mph = static_cast<float>(speed_mmps) * 0.00223694f;
 
-    doc["device"] =     "GPS";
-    doc["time"] =       time;
-    doc["date"] =       date;
-    doc["fix"] =        (int)myGNSS.getGnssFixOk();
+    doc["device"] = "GPS";
+    doc["time"] = time;
+    doc["date"] = date;
+    doc["fix"] = (int)myGNSS.getGnssFixOk();
     if (myGNSS.getGnssFixOk()) {
       doc["latitudeDegrees"] = round(myGNSS.getLatitude() / 10000000.0 * 1e6) / 1e6;
       doc["longitudeDegrees"] = round(myGNSS.getLongitude() / 10000000.0 * 1e6) / 1e6;
-      doc["speed"] =      static_cast<int32_t>(speed_mph);
-      doc["angle"] =      static_cast<int32_t>(round(myGNSS.getHeading() / 100000.0));
-      doc["altitude"] =   static_cast<int32_t>(altitude_feet);
+      doc["speed"] = static_cast<int32_t>(speed_mph);
+      doc["angle"] = static_cast<int32_t>(round(myGNSS.getHeading() / 100000.0));
+      doc["altitude"] = static_cast<int32_t>(altitude_feet);
       doc["satellites"] = myGNSS.getSIV();
     }
 
@@ -91,7 +148,7 @@ void gpsTask(void *pvParameters) {
       strncpy(display_data.time, time, sizeof(display_data.time));
       strncpy(display_data.date, date, sizeof(display_data.date));
       display_data.fix = myGNSS.getGnssFixOk();
-      
+
       if (display_data.fix) {
         display_data.latitude = round(myGNSS.getLatitude() / 10000000.0 * 1e6) / 1e6;
         display_data.longitude = round(myGNSS.getLongitude() / 10000000.0 * 1e6) / 1e6;
@@ -99,19 +156,19 @@ void gpsTask(void *pvParameters) {
         display_data.altitude = static_cast<int32_t>(altitude_feet);
         display_data.satellites = myGNSS.getSIV();
       }
-      
+
       xSemaphoreGive(displayMutex);
     }
 
-    // Thread-safe JSON sending
-    #ifdef ENABLE_MQTT
-      logger_send_mqtt_json(&doc, "GPS", &mqttClient, topic);
-    #else
-      logger_send_json(&doc, "GPS", &wifiClient);
-    #endif
+// Thread-safe JSON sending
+#ifdef ENABLE_MQTT
+    logger_send_mqtt_json(&doc, "GPS", &mqttClient, topic);
+#else
+    logger_send_json(&doc, "GPS");
+#endif
 
     doc.clear();
 
-    vTaskDelay(pdMS_TO_TICKS(1000)); // Delay for 1 second
+    vTaskDelay(pdMS_TO_TICKS(1000));  // Delay for 1 second
   }
 }

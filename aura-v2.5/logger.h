@@ -34,8 +34,8 @@
 
 // Message structure for the queue
 typedef struct {
-    String deviceType;
-    JsonDocument* doc;
+  String deviceType;
+  JsonDocument* doc;
 } message_t;
 
 // Initialize the logging system
@@ -51,19 +51,19 @@ void logger_println(const String& message);
 void logger_println(const __FlashStringHelper* message);
 
 // JSON serialization and sending
-void logger_send_json(JsonDocument* doc, const char* device_type, WiFiClient* wifiClient);
+void logger_send_json(JsonDocument* doc, const char* device_type);
 
 #ifdef ENABLE_MQTT
 #include <ArduinoMqttClient.h>
-void logger_send_mqtt_json(JsonDocument* doc, const char* device_type, 
-                          MqttClient* mqttClient, const char* topic);
+void logger_send_mqtt_json(JsonDocument* doc, const char* device_type,
+                           MqttClient* mqttClient, const char* topic);
 #endif
 
 // Network task for handling message queue
 void networkTask(void* pvParameters);
 
 // Convenience macros
-#define LOG_PRINT(x)    logger_print(x)
-#define LOG_PRINTLN(x)  logger_println(x)
+#define LOG_PRINT(x) logger_print(x)
+#define LOG_PRINTLN(x) logger_println(x)
 
-#endif // OASIS_LOGGER_H
+#endif  // OASIS_LOGGER_H

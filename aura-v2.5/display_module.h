@@ -34,15 +34,15 @@
 #include <WiFi.h>
 
 // TFT Display pins for ESP32-S3 TFT Feather
-#define TFT_CS       7
-#define TFT_DC       39
-#define TFT_RST      40
-#define TFT_BL       45
-#define TFT_PWR      21
+#define TFT_CS 7
+#define TFT_DC 39
+#define TFT_RST 40
+#define TFT_BL 45
+#define TFT_PWR 21
 
 // Display dimensions
-#define TFT_WIDTH    240
-#define TFT_HEIGHT   135
+#define TFT_WIDTH 240
+#define TFT_HEIGHT 135
 
 // Display configuration
 #define PAGE_CHANGE_INTERVAL 8000  // 8 seconds per page
@@ -52,11 +52,11 @@
 
 // Enum for display pages
 typedef enum {
-    PAGE_IMU = 0,
-    PAGE_GPS,
-    PAGE_ENVIRO,
-    PAGE_WIFI,
-    PAGE_COUNT  // Always keep this as the last item
+  PAGE_IMU = 0,
+  PAGE_GPS,
+  PAGE_ENVIRO,
+  PAGE_WIFI,
+  PAGE_COUNT  // Always keep this as the last item
 } display_page_t;
 
 // Function prototypes
@@ -71,42 +71,49 @@ void resetPageDrawFlags(void);
 
 // Struct for holding sensor data for display
 typedef struct {
-    // IMU data
-    float roll;
-    float pitch;
-    float heading;
-    
-    // GPS data
-    char time[10];
-    char date[12];
-    int fix;
-    float latitude;
-    float longitude;
-    int speed;
-    int altitude;
-    int satellites;
-    
-    // Environmental data
-    float temperature;
-    float humidity;
-    float pressure;
-    float air_quality;
-    char air_quality_description[15];
-    
-    // ENS160 specific data
-    int eco2;  // Equivalent CO2 in ppm
-    int tvoc;  // Total Volatile Organic Compounds in ppb
-    
-    // SCD41 CO2 sensor data
-    uint16_t co2;  // CO2 concentration in ppm
-    bool co2_available; // Whether the SCD41 sensor is connected
-    char co2_quality_description[15]; // Quality description based on CO2 levels
-    
-    // WiFi data
-    char ssid[33];
-    int rssi;
-    char ip_address[16];
-    bool is_connected;
+  // IMU data
+  float roll;
+  float pitch;
+  float heading;
+  bool imu_available;
+
+  // GPS data
+  char time[10];
+  char date[12];
+  int fix;
+  float latitude;
+  float longitude;
+  int speed;
+  int altitude;
+  int satellites;
+  bool gps_available;
+
+  // Environmental data
+  float temperature;
+  float humidity;
+  float pressure;
+  float air_quality;
+  char air_quality_description[15];
+  bool temp_available;
+  bool humidity_available;
+  bool pressure_available;
+  bool air_quality_available;
+
+  // ENS160 specific data
+  int eco2;  // Equivalent CO2 in ppm
+  int tvoc;  // Total Volatile Organic Compounds in ppb
+  bool ens160_available;
+
+  // SCD41 CO2 sensor data
+  uint16_t co2;        // CO2 concentration in ppm
+  bool co2_available;
+  char co2_quality_description[15];
+
+  // WiFi data
+  char ssid[33];
+  int rssi;
+  char ip_address[16];
+  bool is_connected;
 } display_data_t;
 
 // Global variables to be exposed
@@ -120,4 +127,4 @@ extern bool gps_page_first_draw;
 extern bool enviro_page_first_draw;
 extern bool wifi_page_first_draw;
 
-#endif // DISPLAY_MODULE_H
+#endif  // DISPLAY_MODULE_H
