@@ -31,44 +31,33 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include <Adafruit_Sensor.h>
-
-// Uncomment only one of these to select your IMU sensor
-//#define USE_ICM20948
-#define USE_BNO086
-
-// Compile-time check to ensure only one sensor is selected
-#if defined(USE_ICM20948) && defined(USE_BNO086)
-#error "Only one IMU sensor can be enabled at a time. Please choose either USE_ICM20948 or USE_BNO086, not both."
-#endif
-
-#if !defined(USE_ICM20948) && !defined(USE_BNO086)
-#error "No IMU sensor selected. Please enable either USE_ICM20948 or USE_BNO086."
-#endif
-
-// Include the necessary headers based on selection
-#ifdef USE_ICM20948
-#include <Adafruit_ICM20948.h>
-#include <Adafruit_ICM20X.h>
-#include <Adafruit_AHRS.h>
-#endif
-
-#ifdef USE_BNO086
+#include <SPI.h>
 #include "SparkFun_BNO08x_Arduino_Library.h"  // Using the SparkFun library
-#endif
+
 
 #ifdef ENABLE_MQTT
 #include <ArduinoMqttClient.h>
 #endif
 
-// IMU Pins for BNO086
-#define BNO086_INT 2  // INT pin (RX pin on ESP32-S3)
-#define BNO086_RST 1  // RST pin (TX pin on ESP32-S3)
+// BNO086 SPI interface pins
+#define BNO086_CS 5     // CS pin on D5 (GPIO5)
+#define BNO086_INT 6    // INT pin on D6 (GPIO6)
+#define BNO086_RST 9    // RST pin on D9 (GPIO9)
+#define BNO086_WAKE 10  // WAKE pin (PS0) on D10 (GPIO10)
 
-// Filter update rate
-#define FILTER_UPDATE_RATE_HZ 100
+// Build it myself secondary SPI
+#define BNO086_SCK A0   // SCK pin on A0 (GPIO18)
+#define BNO086_MISO A1  // MISO pin on A1 (GPIO17)
+#define BNO086_MOSI A2  // MOSI pin on A2 (GPIO16)
+
+// BNO086 SPI configuration
+// NOTE: The SPI bus is shared with the display, so some settings
+// are applied only during transactions by the library
+#define BNO086_SPI_SPEED 2000000  // 2MHz for dedicated SPI bus
 
 // Function prototypes
 void setupIMU();
+void attemptIMUReinitialization();
 void imuTask(void *pvParameters);
 
 #endif  // IMU_MODULE_H

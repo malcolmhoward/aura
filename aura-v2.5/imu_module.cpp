@@ -26,21 +26,10 @@
 #include "logger.h"
 #include "display_module.h"
 
-#ifdef USE_ICM20948
-// ICM20948 IMU/AHRS
-Adafruit_ICM20948 icm;
-Adafruit_Sensor *accelerometer, *gyroscope, *magnetometer, *temperature;
-
-// Pick your filter! slower == better quality output
-Adafruit_NXPSensorFusion filter;  // slowest
-//Adafruit_Madgwick filter;      // faster than NXP
-//Adafruit_Mahony filter;        // fastest/smalleset
-#endif
-
-#ifdef USE_BNO086
+// Let's build a secondary SPI bus
+SPIClass mySPI;
 // BNO086 IMU using SparkFun library
 BNO08x myIMU;
-#endif
 
 #ifdef ENABLE_MQTT
 extern MqttClient mqttClient;
@@ -48,80 +37,97 @@ extern const char topic[];
 #endif
 
 void setupIMU() {
-#ifdef USE_ICM20948
-  // ICM20948
-  if (!icm.begin_I2C()) {
-    LOG_PRINTLN("Failed to find ICM20948 chip - IMU functionality disabled");
+  LOG_PRINTLN(F("Setting up BNO086 with SPI interface"));
+
+  // Configure SPI pins for BNO086
+  pinMode(BNO086_CS, OUTPUT);
+  digitalWrite(BNO086_CS, HIGH);  // Deselect by default
+
+  pinMode(BNO086_INT, INPUT_PULLUP);  // INT pin as input with pull-up
+
+  // Configure PS0/WAKE for SPI mode selection
+  pinMode(BNO086_WAKE, OUTPUT);
+  digitalWrite(BNO086_WAKE, HIGH);  // PS0=HIGH for SPI mode
+
+  // Configure Reset pin
+  pinMode(BNO086_RST, OUTPUT);
+  digitalWrite(BNO086_RST, HIGH);  // Initial state (not in reset)
+
+  LOG_PRINTLN(F("Performing BNO086 reset sequence for SPI mode"));
+
+  // Reset sequence according to datasheet
+  // 1. Set PS0 (WAKE) HIGH for SPI mode
+  digitalWrite(BNO086_WAKE, HIGH);
+
+  // 2. Set CS HIGH (deselected)
+  digitalWrite(BNO086_CS, HIGH);
+
+  // 3. Put BNO086 in reset
+  digitalWrite(BNO086_RST, LOW);
+  delay(10);  // Hold in reset for 10ms
+
+  // 4. Release from reset
+  digitalWrite(BNO086_RST, HIGH);
+
+  // 5. Wait for BNO086 to initialize
+  delay(100);  // Generous delay
+
+  LOG_PRINTLN(F("Initializing BNO086 SPI communication"));
+  delay(50);  // Additional delay for stability
+
+  // Initialize BNO086 with SPI, using the shared SPI bus with the display
+  mySPI.begin(BNO086_SCK, BNO086_MISO, BNO086_MOSI, BNO086_CS);
+
+  if (myIMU.beginSPI(BNO086_CS, BNO086_INT, BNO086_RST, BNO086_SPI_SPEED, mySPI) == false) {
+    LOG_PRINTLN(F("Failed to find BNO08x chip with SPI - IMU functionality disabled"));
+    LOG_PRINTLN(F("Verify SPI connections and mode settings"));
 
     if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
       display_data.imu_available = false;
       xSemaphoreGive(displayMutex);
     }
+
+    // Try a lower SPI speed as fallback
+    LOG_PRINTLN(F("Attempting with lower SPI speed..."));
+    delay(100);
+    if (myIMU.beginSPI(BNO086_CS, BNO086_INT, BNO086_RST, 500000, SPI) == false) {
+      LOG_PRINTLN(F("SPI initialization still failed with lower speed"));
+    } else {
+      LOG_PRINTLN(F("SPI initialized with lower speed successfully!"));
+      if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+        display_data.imu_available = true;
+        xSemaphoreGive(displayMutex);
+      }
+    }
   } else {
-    LOG_PRINTLN("ICM20948 Found!");
+    LOG_PRINTLN(F("BNO08x Found with SPI interface!"));
 
     if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
       display_data.imu_available = true;
       xSemaphoreGive(displayMutex);
     }
 
-    temperature = icm.getTemperatureSensor();
-    temperature->printSensorDetails();
-
-    accelerometer = icm.getAccelerometerSensor();
-    accelerometer->printSensorDetails();
-
-    gyroscope = icm.getGyroSensor();
-    gyroscope->printSensorDetails();
-
-    magnetometer = icm.getMagnetometerSensor();
-    magnetometer->printSensorDetails();
-
-    filter.begin(FILTER_UPDATE_RATE_HZ);
-  }
-#endif
-
-#ifdef USE_BNO086
-  // Initialize BNO086 with the SparkFun library
-  // This approach uses the hardware INT and RST pins for the most reliable operation
-  if (myIMU.begin(0x4B, Wire, BNO086_INT, BNO086_RST) == false) {
-    LOG_PRINTLN("Failed to find BNO08x chip - IMU functionality disabled");
-
-    if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
-      display_data.imu_available = false;
-      xSemaphoreGive(displayMutex);
-    }
-  } else {
-    LOG_PRINTLN("BNO08x Found!");
-
-    if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
-      display_data.imu_available = true;
-      xSemaphoreGive(displayMutex);
-    }
-
-    // Set up optimal calibration for head tracking
+    // Set up calibration for head tracking
     myIMU.setCalibrationConfig(SH2_CAL_ACCEL);
 
-    // Use Gyro Integrated Rotation Vector instead of standard Rotation Vector
-    // This provides lower latency and is better suited for AR/VR applications
-    // The value 10 means a report interval of 10ms (100Hz)
+    LOG_PRINTLN(F("Enabling rotation vector for tracking..."));
+
+    // Try to enable the optimal rotation vector type
     if (myIMU.enableGyroIntegratedRotationVector(10) == true) {
-      LOG_PRINTLN("Gyro Integrated Rotation Vector enabled for AR headset tracking");
+      LOG_PRINTLN(F("Gyro Integrated Rotation Vector enabled"));
     } else {
-      // Fallback to AR/VR stabilized rotation vector if Gyro Integrated isn't available
+      // Fall back to standard options if needed
       if (myIMU.enableARVRStabilizedRotationVector(10) == true) {
-        LOG_PRINTLN("AR/VR Stabilized Rotation Vector enabled for AR headset tracking");
+        LOG_PRINTLN(F("AR/VR Stabilized Rotation Vector enabled"));
       } else {
-        // Final fallback to standard rotation vector
         if (myIMU.enableRotationVector(10) == true) {
-          LOG_PRINTLN("Standard Rotation Vector enabled (AR optimized features unavailable)");
+          LOG_PRINTLN(F("Standard Rotation Vector enabled"));
         } else {
-          LOG_PRINTLN("Could not enable any rotation vector");
+          LOG_PRINTLN(F("Could not enable any rotation vector"));
         }
       }
     }
   }
-#endif
 }
 
 void attemptIMUReinitialization() {
@@ -135,39 +141,41 @@ void attemptIMUReinitialization() {
 
   if (currently_available) return;  // Already working, no need to reinitialize
 
-  LOG_PRINTLN("Attempting to reinitialize IMU...");
+  LOG_PRINTLN(F("Attempting to reinitialize IMU..."));
 
-#ifdef USE_ICM20948
-  if (!icm.begin_I2C()) {
-    LOG_PRINTLN("IMU reinitialization failed");
-    return;
+  LOG_PRINTLN(F("Re-initializing BNO086 SPI interface"));
+
+  // Make sure PS0/WAKE is HIGH for SPI mode
+  digitalWrite(BNO086_WAKE, HIGH);
+
+  // Ensure CS is HIGH (deselected)
+  digitalWrite(BNO086_CS, HIGH);
+
+  // Reset sequence
+  digitalWrite(BNO086_RST, LOW);
+  delay(10);  // Hold in reset for 10ms
+  digitalWrite(BNO086_RST, HIGH);
+  delay(100);  // Wait for BNO086 to initialize
+
+  // Try to reinitialize with SPI
+  if (myIMU.beginSPI(BNO086_CS, BNO086_INT, BNO086_RST, BNO086_SPI_SPEED, SPI) == false) {
+    LOG_PRINTLN(F("IMU SPI reinitialization failed"));
+
+    // Try with a lower SPI speed
+    LOG_PRINTLN(F("Attempting reinitialization with lower SPI speed..."));
+    delay(100);
+    if (myIMU.beginSPI(BNO086_CS, BNO086_INT, BNO086_RST, 500000, SPI) == false) {
+      LOG_PRINTLN(F("IMU reinitialization failed with lower speed as well"));
+      return;
+    } else {
+      LOG_PRINTLN(F("IMU reinitialized with lower SPI speed"));
+    }
   }
 
-  temperature = icm.getTemperatureSensor();
-  accelerometer = icm.getAccelerometerSensor();
-  gyroscope = icm.getGyroSensor();
-  magnetometer = icm.getMagnetometerSensor();
-  filter.begin(FILTER_UPDATE_RATE_HZ);
-
-  if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
-    display_data.imu_available = true;
-    xSemaphoreGive(displayMutex);
-  }
-
-  LOG_PRINTLN("IMU successfully reinitialized!");
-#endif
-
-#ifdef USE_BNO086
-  if (myIMU.begin(0x4B, Wire, BNO086_INT, BNO086_RST) == false) {
-    LOG_PRINTLN("IMU reinitialization failed");
-    return;
-  }
-
-  // Set up optimal calibration for head tracking
+  // Re-setup optimal calibration
   myIMU.setCalibrationConfig(SH2_CAL_ACCEL);
 
-  // Enable the optimal rotation vector for AR applications
-  // Try each option in priority order
+  // Re-enable the optimal rotation vector
   if (!myIMU.enableGyroIntegratedRotationVector(10)) {
     if (!myIMU.enableARVRStabilizedRotationVector(10)) {
       myIMU.enableRotationVector(10);
@@ -179,25 +187,20 @@ void attemptIMUReinitialization() {
     xSemaphoreGive(displayMutex);
   }
 
-  LOG_PRINTLN("IMU successfully reinitialized!");
-#endif
+  LOG_PRINTLN(F("IMU successfully reinitialized!"));
 }
 
 // IMU task, pinned to Core 0, runs at the filter update rate
 void imuTask(void* pvParameters) {
-#ifdef USE_ICM20948
-  sensors_event_t accel, gyro, mag, temp;
-  float roll, pitch, heading;
-  float gx, gy, gz;
-#endif
-
-#ifdef USE_BNO086
   float roll = 0, pitch = 0, heading = 0;
   static float prevHeading = -999.0f;
   static float prevPitch = -999.0f;
   static float prevRoll = -999.0f;
   static int stuckValueCount = 0;
-#endif
+  static unsigned long lastDataTime = 0;
+  const unsigned long DATA_TIMEOUT = 1000;  // 1 second timeout for data
+  static int resetAttempts = 0;
+  const int MAX_RESET_ATTEMPTS = 3;  // Maximum consecutive reset attempts before changing strategy
 
   JsonDocument doc;
   unsigned long last_reinit_attempt = 0;
@@ -225,35 +228,56 @@ void imuTask(void* pvParameters) {
       continue;
     }
 
-#ifdef USE_ICM20948
-    /* Read the motion sensors */
-    accelerometer->getEvent(&accel);
-    gyroscope->getEvent(&gyro);
-    magnetometer->getEvent(&mag);
-    temperature->getEvent(&temp);
+    // Check for data timeout
+    unsigned long currentTime = millis();
+    if (currentTime - lastDataTime > DATA_TIMEOUT) {
+      LOG_PRINTLN(F("IMU data timeout - checking connection"));
 
-    /* Calculate motion information */
-    // Gyroscope needs to be converted from Rad/s to Degree/s
-    // the rest are not unit-important
-    gx = gyro.gyro.x * SENSORS_RADS_TO_DPS;
-    gy = gyro.gyro.y * SENSORS_RADS_TO_DPS;
-    gz = gyro.gyro.z * SENSORS_RADS_TO_DPS;
+      if (myIMU.wasReset()) {
+        LOG_PRINTLN(F("BNO086 was reset during timeout - re-enabling features"));
+        // Reset was detected - re-enable rotation vector
+        if (!myIMU.enableGyroIntegratedRotationVector(10)) {
+          if (!myIMU.enableARVRStabilizedRotationVector(10)) {
+            myIMU.enableRotationVector(10);
+          }
+        }
+        resetAttempts = 0;           // Clear attempt counter
+        lastDataTime = currentTime;  // Reset timeout
+      } else {
+        resetAttempts++;
+        LOG_PRINT(F("No data from BNO086 - wake attempt #"));
+        LOG_PRINTLN(String(resetAttempts));
 
-    // Update the SensorFusion filter
-    filter.update(gx, gy, gz,
-                  accel.acceleration.x, accel.acceleration.y, accel.acceleration.z,
-                  mag.magnetic.x, mag.magnetic.y, mag.magnetic.z);
+        if (resetAttempts <= MAX_RESET_ATTEMPTS) {
+          // Try wake strategy first
+          // In SPI mode, pulsing WAKE/PS0 can help wake the device
+          digitalWrite(BNO086_CS, HIGH);  // Ensure CS is HIGH (deselected)
+          digitalWrite(BNO086_WAKE, LOW);
+          delayMicroseconds(50);  // Short pulse
+          digitalWrite(BNO086_WAKE, HIGH);
+          delay(1);  // Give it a moment
+        } else {
+          // If multiple wake attempts failed, try a hard reset
+          LOG_PRINTLN(F("Wake attempts failed, performing hard reset"));
+          digitalWrite(BNO086_RST, LOW);
+          delay(10);  // Hold in reset for 10ms
+          digitalWrite(BNO086_RST, HIGH);
+          delay(50);  // Wait for BNO086 to come out of reset
 
-    // get the heading, pitch and roll
-    roll = filter.getRoll();
-    pitch = filter.getPitch();
-    heading = filter.getYaw();
-#endif
+          // Set flag to trigger reinitialization
+          if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+            display_data.imu_available = false;
+            xSemaphoreGive(displayMutex);
+          }
 
-#ifdef USE_BNO086
+          resetAttempts = 0;  // Reset counter after hard reset
+        }
+      }
+    }
+
     // Handle any resets
     if (myIMU.wasReset()) {
-      LOG_PRINTLN("BNO08x was reset - re-enabling optimized rotation vector");
+      LOG_PRINTLN(F("BNO08x was reset - re-enabling optimized rotation vector"));
       // Try in priority order
       if (!myIMU.enableGyroIntegratedRotationVector(10)) {
         if (!myIMU.enableARVRStabilizedRotationVector(10)) {
@@ -264,6 +288,9 @@ void imuTask(void* pvParameters) {
 
     // Check if we have a new sensor event
     if (myIMU.getSensorEvent() == true) {
+      // Update the data timeout timer
+      lastDataTime = currentTime;
+
       // Make sure it's one of our desired sensor types
       uint8_t sensorId = myIMU.getSensorEventID();
       if (sensorId == SENSOR_REPORTID_ROTATION_VECTOR || sensorId == SENSOR_REPORTID_GYRO_INTEGRATED_ROTATION_VECTOR || sensorId == SENSOR_REPORTID_AR_VR_STABILIZED_ROTATION_VECTOR) {
@@ -273,23 +300,18 @@ void imuTask(void* pvParameters) {
         pitch = (myIMU.getPitch()) * 180.0 / PI;  // Convert pitch to degrees
         heading = (myIMU.getYaw()) * 180.0 / PI;  // Convert yaw / heading to degrees
 
-        // Additional data available for Gyro Integrated RV (not used yet)
-        /*
-        if (sensorId == SENSOR_REPORTID_GYRO_INTEGRATED_ROTATION_VECTOR) {
-          float angVelX = myIMU.getGyroIntegratedRVangVelX();
-          float angVelY = myIMU.getGyroIntegratedRVangVelY();
-          float angVelZ = myIMU.getGyroIntegratedRVangVelZ();
-          
-          // These could be used for motion prediction or effects
-        }
-        */
-
         // Check for stuck default values
         if (heading == 90.0f && pitch == 0.0f && roll == 90.0f) {
           stuckValueCount++;
           if (stuckValueCount > 5) {
-            LOG_PRINTLN("BNO08x stuck at default values. Resetting...");
-            myIMU.softReset();
+            LOG_PRINTLN(F("BNO08x stuck at default values. Resetting..."));
+
+            // Hard reset the BNO086
+            digitalWrite(BNO086_RST, LOW);
+            delay(10);
+            digitalWrite(BNO086_RST, HIGH);
+            delay(50);
+
             stuckValueCount = 0;
 
             // Set IMU as unavailable to trigger reinitialization
@@ -321,7 +343,7 @@ void imuTask(void* pvParameters) {
             xSemaphoreGive(displayMutex);
           }
 
-// Send JSON data
+          // Send JSON data
 #ifdef ENABLE_MQTT
           logger_send_mqtt_json(&doc, "Motion", &mqttClient, topic);
 #else
@@ -339,35 +361,5 @@ void imuTask(void* pvParameters) {
     }
 
     vTaskDelay(pdMS_TO_TICKS(10));  // Short delay to allow other tasks to run
-#endif
-
-#ifdef USE_ICM20948
-    // Prepare to send motion data
-    doc["device"] = "Motion";
-    doc["format"] = "Orientation";
-    doc["heading"] = heading;
-    doc["pitch"] = -1.0f * pitch;  // Keep consistent with the original sign inversion
-    doc["roll"] = roll;
-
-    // Update display data
-    if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
-      display_data.roll = roll;
-      display_data.pitch = pitch;
-      display_data.heading = heading;
-
-      xSemaphoreGive(displayMutex);
-    }
-
-// Thread-safe JSON sending
-#ifdef ENABLE_MQTT
-    logger_send_mqtt_json(&doc, "Motion", &mqttClient, topic);
-#else
-    logger_send_json(&doc, "Motion");
-#endif
-
-    doc.clear();
-
-    vTaskDelay(pdMS_TO_TICKS(1000 / FILTER_UPDATE_RATE_HZ));  // Delay at filter update rate
-#endif
   }
 }

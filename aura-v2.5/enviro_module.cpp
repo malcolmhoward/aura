@@ -27,43 +27,8 @@
 #include "display_module.h"
 
 // Environmental Sensors
-#ifdef USE_BME680
-Adafruit_BME680 bme;
-#define SEALEVELPRESSURE_HPA (1018)
-#endif
-
-#ifdef USE_ENS160_AHT21
-Adafruit_AHTX0 aht;             // AHT20/AHT21 sensor
 ScioSense_ENS160 ens160(0x53);  // ENS160 sensor with I2C address 0x53
-
-// Runtime calibration values (initialized from defines)
-float aht21_temp_offset = AHT21_TEMP_OFFSET;
-float aht21_hum_offset = AHT21_HUM_OFFSET;
-
-// Calibration functions
-void setAHT21TempOffset(float offset) {
-  aht21_temp_offset = offset;
-  LOG_PRINT("AHT21 temperature offset set to: ");
-  LOG_PRINTLN(String(offset));
-}
-
-void setAHT21HumOffset(float offset) {
-  aht21_hum_offset = offset;
-  LOG_PRINT("AHT21 humidity offset set to: ");
-  LOG_PRINTLN(String(offset));
-}
-
-float getAHT21TempOffset() {
-  return aht21_temp_offset;
-}
-
-float getAHT21HumOffset() {
-  return aht21_hum_offset;
-}
-#endif
-
-#ifdef USE_SCD41
-SensirionI2cScd4x scd4x;  // SCD41 CO2 sensor
+SensirionI2cScd4x scd4x;        // SCD41 CO2 sensor
 bool scd41_available = false;
 
 // Return descriptive quality string based on CO2 reading
@@ -74,7 +39,6 @@ const char* getCO2QualityDescription(uint16_t co2_ppm) {
   else if (co2_ppm < CO2_POOR) return "Poor";
   else return "Very Poor";
 }
-#endif
 
 #ifdef ENABLE_MQTT
 extern MqttClient mqttClient;
@@ -87,58 +51,6 @@ float mapFloat(float x, float in_min, float in_max, float out_min, float out_max
 }
 
 void setupEnvironmental() {
-#ifdef USE_BME680
-  // BME680 setup
-  if (!bme.begin(0x76, true)) {
-    LOG_PRINTLN("Could not find a valid BME688 sensor, check wiring!");
-
-    if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
-      display_data.temp_available = false;
-      display_data.humidity_available = false;
-      display_data.pressure_available = false;
-      display_data.air_quality_available = false;
-      xSemaphoreGive(displayMutex);
-    }
-  } else {
-    LOG_PRINTLN("BME688 found!");
-
-    if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
-      display_data.temp_available = true;
-      display_data.humidity_available = true;
-      display_data.pressure_available = true;
-      display_data.air_quality_available = true;
-      xSemaphoreGive(displayMutex);
-    }
-
-    // Set up oversampling and filter initialization
-    bme.setTemperatureOversampling(BME680_OS_8X);
-    bme.setHumidityOversampling(BME680_OS_2X);
-    bme.setPressureOversampling(BME680_OS_4X);
-    bme.setIIRFilterSize(BME680_FILTER_SIZE_3);
-    bme.setGasHeater(320, 150);  // 320*C for 150 ms
-  }
-#endif
-
-#ifdef USE_ENS160_AHT21
-  // AHT21 setup
-  if (!aht.begin()) {
-    LOG_PRINTLN("Could not find a valid AHT20/AHT21 sensor, check wiring!");
-
-    if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
-      display_data.temp_available = false;
-      display_data.humidity_available = false;
-      xSemaphoreGive(displayMutex);
-    }
-  } else {
-    LOG_PRINTLN("AHT20/AHT21 found!");
-
-    if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
-      display_data.temp_available = true;
-      display_data.humidity_available = true;
-      xSemaphoreGive(displayMutex);
-    }
-  }
-
   // ENS160 setup
   if (!ens160.begin()) {
     LOG_PRINTLN("Could not find a valid ENS160 sensor, check wiring!");
@@ -164,9 +76,7 @@ void setupEnvironmental() {
     // but we'll allow a few seconds for basic operation)
     delay(2000);
   }
-#endif
 
-#ifdef USE_SCD41
   // SCD41 setup following manufacturer's recommended initialization sequence
   LOG_PRINTLN("Initializing SCD41...");
   scd4x.begin(Wire, SCD41_I2C_ADDR_62);
@@ -203,9 +113,9 @@ void setupEnvironmental() {
     LOG_PRINT("SCD41 found! Serial: ");
     // Print serial number in hex format
     char serialStr[20];
-    sprintf(serialStr, "0x%08X%08X",
-            (uint32_t)(serialNumber >> 32),
-            (uint32_t)(serialNumber & 0xFFFFFFFF));
+    sprintf(serialStr, "0x%08lX%08lX",
+            (unsigned long)(serialNumber >> 32),
+            (unsigned long)(serialNumber & 0xFFFFFFFF));
     LOG_PRINTLN(serialStr);
 
     // Set additional configuration if needed
@@ -217,9 +127,13 @@ void setupEnvironmental() {
       LOG_PRINT("Error starting periodic measurement: ");
       LOG_PRINTLN(String(error));
       scd41_available = false;
+      display_data.temp_available = false;
+      display_data.humidity_available = false;
     } else {
       LOG_PRINTLN("SCD41 periodic measurement started");
       scd41_available = true;
+      display_data.temp_available = true;
+      display_data.humidity_available = true;
     }
   }
 
@@ -235,60 +149,19 @@ void setupEnvironmental() {
 
     xSemaphoreGive(displayMutex);
   }
-#endif
 }
 
 void attemptEnviroReinitialization() {
   LOG_PRINTLN("Attempting to reinitialize environmental sensors...");
 
-  bool temp_available = false;
-  bool humidity_available = false;
-  bool pressure_available = false;
   bool air_quality_available = false;
   bool ens160_available = false;
 
   // Get current status
   if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
-    temp_available = display_data.temp_available;
-    humidity_available = display_data.humidity_available;
-    pressure_available = display_data.pressure_available;
     air_quality_available = display_data.air_quality_available;
     ens160_available = display_data.ens160_available;
     xSemaphoreGive(displayMutex);
-  }
-
-#ifdef USE_BME680
-  if (!temp_available || !humidity_available || !pressure_available || !air_quality_available) {
-    if (bme.begin(0x76, true)) {
-      LOG_PRINTLN("BME688 reinitialized successfully!");
-      bme.setTemperatureOversampling(BME680_OS_8X);
-      bme.setHumidityOversampling(BME680_OS_2X);
-      bme.setPressureOversampling(BME680_OS_4X);
-      bme.setIIRFilterSize(BME680_FILTER_SIZE_3);
-      bme.setGasHeater(320, 150);
-
-      if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
-        display_data.temp_available = true;
-        display_data.humidity_available = true;
-        display_data.pressure_available = true;
-        display_data.air_quality_available = true;
-        xSemaphoreGive(displayMutex);
-      }
-    }
-  }
-#endif
-
-#ifdef USE_ENS160_AHT21
-  if (!temp_available || !humidity_available) {
-    if (aht.begin()) {
-      LOG_PRINTLN("AHT20/AHT21 reinitialized successfully!");
-
-      if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
-        display_data.temp_available = true;
-        display_data.humidity_available = true;
-        xSemaphoreGive(displayMutex);
-      }
-    }
   }
 
   if (!ens160_available || !air_quality_available) {
@@ -303,9 +176,7 @@ void attemptEnviroReinitialization() {
       }
     }
   }
-#endif
 
-#ifdef USE_SCD41
   // Check if SCD41 is unavailable
   bool co2_available = false;
 
@@ -318,40 +189,20 @@ void attemptEnviroReinitialization() {
     // Try to reinitialize SCD41...
     // This would follow a similar pattern to your existing SCD41 initialization code
   }
-#endif
 }
 
 // Environmental sensor task runs every 5 seconds
 void enviroTask(void* pvParameters) {
   float temperature = 0.0;
-  float pressure = 0.0;
   float humidity = 0.0;
   float air_quality_score = 0.0;
-  float gas_resistance = 0.0;
-  float altitude = 0.0;
-
-  // Variables for IAQ (Indoor Air Quality) calculation
-  float hum_reference = 40.0;      // Reference humidity for IAQ calculation
-  float gas_reference = 250000.0;  // Reference gas resistance for IAQ calculation
-  float hum_score, gas_score;
-
-  uint32_t timestamp = 0;
 
   unsigned long last_reinit_attempt = 0;
   const unsigned long REINIT_INTERVAL = 60000;  // Try to reinitialize every minute
 
-  // These were the missing variables
-#ifdef USE_BME680
-  unsigned long bmeEndTime = 0L;
-#endif
-
-#ifdef USE_SCD41
+  uint16_t eco2 = 0;
+  uint16_t tvoc = 0;
   uint16_t co2_ppm = 0;
-  float temp_scd41 = 0.0;
-  float humidity_scd41 = 0.0;
-  bool dataReady = false;
-  uint16_t error = 0;
-#endif
 
   bool any_sensor_available = false;
 
@@ -360,11 +211,9 @@ void enviroTask(void* pvParameters) {
   LOG_PRINTLN(F("Environmental task started."));
 
   while (true) {
-    timestamp = millis();
-
     // Check if we need to attempt reinitialization
     if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
-      any_sensor_available = display_data.temp_available || display_data.humidity_available || display_data.pressure_available || display_data.air_quality_available || display_data.ens160_available || display_data.co2_available;
+      any_sensor_available = display_data.temp_available || display_data.humidity_available || display_data.air_quality_available || display_data.ens160_available || display_data.co2_available;
       xSemaphoreGive(displayMutex);
     }
 
@@ -376,7 +225,7 @@ void enviroTask(void* pvParameters) {
         last_reinit_attempt = now;
         // After attempting reinitialization, check if any sensor became available
         if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
-          any_sensor_available = display_data.temp_available || display_data.humidity_available || display_data.pressure_available || display_data.air_quality_available || display_data.ens160_available || display_data.co2_available;
+          any_sensor_available = display_data.temp_available || display_data.humidity_available || display_data.air_quality_available || display_data.ens160_available || display_data.co2_available;
           xSemaphoreGive(displayMutex);
         }
 
@@ -390,70 +239,8 @@ void enviroTask(void* pvParameters) {
       }
     }
 
-#ifdef USE_BME680
-    /* Read BME680 sensor */
-    if (bmeEndTime == 0) {
-      bmeEndTime = bme.beginReading();
-      if (bmeEndTime == 0) {
-        LOG_PRINTLN(F("Failed to begin reading :("));
-      } else {
-        bmeEndTime += 5000;  // Add padding so we don't block on the reading
-      }
-    }
-
-    if (bmeEndTime != 0 && timestamp > bmeEndTime) {
-      LOG_PRINTLN("Reading BME");
-      if (bme.endReading()) {
-        temperature = bme.temperature;                      // C
-        pressure = bme.pressure / 100.0;                    // hPa
-        humidity = bme.humidity;                            // %
-        gas_resistance = bme.gas_resistance / 1000.0;       // KOhms
-        altitude = bme.readAltitude(SEALEVELPRESSURE_HPA);  // m
-
-        // Calculate air quality score (simplified IAQ calculation)
-        // Humidity score (optimal: 40%)
-        if (humidity >= 38 && humidity <= 42)
-          hum_score = 100.0;
-        else {  // Humidity is sub-optimal
-          if (humidity < 38)
-            hum_score = mapFloat(humidity, 0, 38, 0, 100);
-          else
-            hum_score = mapFloat(humidity, 42, 100, 100, 0);
-        }
-
-        // Gas resistance score (higher resistance = better air quality)
-        gas_score = mapFloat(gas_resistance, 0, 500, 0, 100);
-        if (gas_score > 100) gas_score = 100;
-        if (gas_score < 0) gas_score = 0;
-
-        // Calculate IAQ index (weighted average)
-        air_quality_score = (hum_score * 0.25) + (gas_score * 0.75);
-
-        bmeEndTime = 0L;
-      }
-    }
-#endif
-
-#ifdef USE_ENS160_AHT21
-    /* Read AHT21 + ENS160 sensors */
-    LOG_PRINTLN("Reading AHT21+ENS160");
-
-    // Read temperature and humidity from AHT20/AHT21
-    sensors_event_t humidity_event, temp_event;
-    if (aht.getEvent(&humidity_event, &temp_event)) {
-      // Apply calibration offsets
-      temperature = temp_event.temperature + aht21_temp_offset;        // C
-      humidity = humidity_event.relative_humidity + aht21_hum_offset;  // %
-
-      // Constrain humidity to valid range (0-100%)
-      if (humidity > 100.0f) humidity = 100.0f;
-      if (humidity < 0.0f) humidity = 0.0f;
-
-      // Set temperature and humidity compensation for ENS160
-      ens160.set_envdata(temperature, humidity);
-    } else {
-      LOG_PRINTLN("Failed to read from AHT20/AHT21 sensor");
-    }
+    /* Read ENS160 sensors */
+    LOG_PRINTLN("Reading ENS160");
 
     // Read air quality data from ENS160
     if (ens160.measure()) {
@@ -461,30 +248,19 @@ void enviroTask(void* pvParameters) {
       uint8_t aqi = ens160.getAQI();
 
       // Read eCO2 level
-      uint16_t eco2 = ens160.geteCO2();
+      eco2 = ens160.geteCO2();
 
       // Read TVOC level
-      uint16_t tvoc = ens160.getTVOC();
+      tvoc = ens160.getTVOC();
 
       // Map AQI to our 0-100 scale (where 100 is excellent)
       // ENS160 AQI: 1=excellent, 2=good, 3=moderate, 4=poor, 5=unhealthy
       // Inverse mapping: 1->100, 2->80, 3->60, 4->40, 5->20
       air_quality_score = 120 - (aqi * 20);
-
-      // Store TVOC as our gas_resistance equivalent (for compatibility)
-      gas_resistance = tvoc;
-
-      // No pressure sensor in this combo, so use a default or previous value
-      pressure = 1013.25;  // Standard sea level pressure in hPa
-
-      // No altitude data available with this sensor
-      altitude = 0.0;
     } else {
       LOG_PRINTLN("Failed to read from ENS160 sensor");
     }
-#endif
 
-#ifdef USE_SCD41
     /* Read SCD41 CO2 sensor (if available) */
     if (scd41_available) {
       // Check if new data is available
@@ -496,24 +272,12 @@ void enviroTask(void* pvParameters) {
         LOG_PRINTLN(String(error));
       } else if (dataReady) {
         // Read measurement
-        uint16_t co2_ppm = 0;
-        float temp_scd41 = 0.0;
-        float humidity_scd41 = 0.0;
-
-        error = scd4x.readMeasurement(co2_ppm, temp_scd41, humidity_scd41);
+        error = scd4x.readMeasurement(co2_ppm, temperature, humidity);
 
         if (error != 0) {
           LOG_PRINT("Error reading measurement: ");
           LOG_PRINTLN(String(error));
         } else if (co2_ppm != 0) {  // CO2 of 0ppm indicates an invalid reading
-          // Print results in proper format
-          LOG_PRINT("CO2 concentration [ppm]: ");
-          LOG_PRINTLN(String(co2_ppm));
-          LOG_PRINT("Temperature [°C]: ");
-          LOG_PRINTLN(String(temp_scd41));
-          LOG_PRINT("Relative Humidity [%RH]: ");
-          LOG_PRINTLN(String(humidity_scd41));
-
           // We now have valid CO2 data
           // Update display data
           if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
@@ -523,49 +287,23 @@ void enviroTask(void* pvParameters) {
                     sizeof(display_data.co2_quality_description));
             xSemaphoreGive(displayMutex);
           }
-
-          // Option: If using SCD41 temperature and humidity is preferred
-          // over the AHT21 values, you could use those instead:
-          /*
-          temperature = temp_scd41;
-          humidity = humidity_scd41;
-          */
         }
       }
     }
-#endif
 
     /* Prepare data for sending */
     doc["device"] = "Enviro";
     doc["temp_c"] = temperature;
     doc["temp_f"] = (temperature * 9.0 / 5.0) + 32.0;  // Convert to Fahrenheit
     doc["humidity"] = humidity;
+    doc["tvoc_ppb"] = tvoc;
+    doc["eco2_ppm"] = eco2;
 
-#ifdef USE_BME680
-    doc["pressure_hpa"] = pressure;
-    doc["altitude_m"] = altitude;
-    doc["altitude_ft"] = altitude * 3.28084;  // Convert to feet
-    doc["gas_kohms"] = gas_resistance;
-#endif
-
-#ifdef USE_ENS160_AHT21
-    doc["pressure_hpa"] = pressure;
-    doc["tvoc_ppb"] = gas_resistance;  // Using the TVOC value
-    doc["eco2_ppm"] = ens160.geteCO2();
-#endif
-
-#ifdef USE_SCD41
-    // Add SCD41 data if available
     if (scd41_available && co2_ppm != 0) {
       doc["co2_ppm"] = co2_ppm;
       doc["co2_quality"] = getCO2QualityDescription(co2_ppm);
-
-// If we have both eCO2 and real CO2, add the difference
-#ifdef USE_ENS160_AHT21
-      doc["co2_eco2_diff"] = (int)co2_ppm - ens160.geteCO2();
-#endif
+      doc["co2_eco2_diff"] = (int)co2_ppm - eco2;
     }
-#endif
 
     doc["air_quality"] = air_quality_score;
 
@@ -602,7 +340,6 @@ void enviroTask(void* pvParameters) {
     if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
       display_data.temperature = temperature;
       display_data.humidity = humidity;
-      display_data.pressure = pressure;
       display_data.air_quality = air_quality_score;
 
       if (air_quality_score > 80)
@@ -616,13 +353,10 @@ void enviroTask(void* pvParameters) {
       else
         strncpy(display_data.air_quality_description, "Very Poor", sizeof(display_data.air_quality_description));
 
-#ifdef USE_ENS160_AHT21
       // Update ENS160 specific data for display
-      display_data.eco2 = ens160.geteCO2();
-      display_data.tvoc = ens160.getTVOC();
-#endif
+      display_data.eco2 = eco2;
+      display_data.tvoc = tvoc;
 
-#ifdef USE_SCD41
       // Update SCD41 data if available
       if (scd41_available && co2_ppm != 0) {
         display_data.co2 = co2_ppm;
@@ -631,7 +365,6 @@ void enviroTask(void* pvParameters) {
                 getCO2QualityDescription(co2_ppm),
                 sizeof(display_data.co2_quality_description));
       }
-#endif
 
       xSemaphoreGive(displayMutex);
     }

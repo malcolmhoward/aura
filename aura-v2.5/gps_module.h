@@ -32,9 +32,42 @@
 #include <freertos/semphr.h>
 #include <SparkFun_u-blox_GNSS_Arduino_Library.h>
 
+// Choose communication interface by uncommenting ONE of these lines:
+#define GPS_USE_UART  // Use UART interface for GPS
+//#define GPS_USE_I2C  // Use I2C interface for GPS
+
+// Make sure exactly one interface is defined
+#if defined(GPS_USE_UART) && defined(GPS_USE_I2C)
+#error "Cannot define both GPS_USE_UART and GPS_USE_I2C. Choose one interface."
+#elif !defined(GPS_USE_UART) && !defined(GPS_USE_I2C)
+#error "Must define either GPS_USE_UART or GPS_USE_I2C for GPS communication."
+#endif
+
+// Configuration constants
+#ifdef GPS_USE_UART
+// UART configuration for Adafruit ESP32-S3 TFT Feather
+#define GPS_UART_TX_PIN 1         // TX pin (GPIO1)
+#define GPS_UART_RX_PIN 2         // RX pin (GPIO2)
+#define GPS_BAUDRATE 38400        // Factory default u-blox baudrate
+#define GPS_HIGH_BAUDRATE 115200  // High performance baudrate
+#define GPS_SERIAL Serial1        // Use Serial1 for GPS communications
+#endif
+
+#ifdef GPS_USE_I2C
+// I2C configuration
+#define GPS_I2C_ADDR 0x42  // Default u-blox I2C address
+// I2C pins are defined in the main sketch (SDA=42, SCL=41 for ESP32-S3 TFT Feather)
+#define GPS_HIGH_BAUDRATE 115200  // Define the high performance baudrate to upgrade to
+#endif
+
+#define GPS_RESET_PIN A4  // Reset pin (GPIO14/A4)
+
 // Function prototypes
 void setupGPS();
 void attemptGPSReinitialization();
 void gpsTask(void *pvParameters);
+
+// External declarations
+extern SFE_UBLOX_GNSS myGNSS;
 
 #endif  // GPS_MODULE_H

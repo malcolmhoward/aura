@@ -23,11 +23,11 @@
  */
 
 #include "display_module.h"
-#include "enviro_module.h"  // For ENS160_AHT21/BME680 defines
+#include "enviro_module.h"  // For ENS160/SCD41 defines
 #include "imu_module.h"     // For IMU sensor defines
 #include "gps_module.h"     // For GPS functionality
 #include "logger.h"
-#include <cstring>  // for strcpy, strcmp
+#include <string.h>
 
 extern char ssid[];
 
@@ -232,17 +232,6 @@ void displayIMUPage(void) {
     int y2 = compass_y - cos(heading_rad) * indicator_size;
     tft.drawLine(compass_x, compass_y, x2, y2, COLOR_IMU);
 
-    // Mark cardinal directions again (they might have been erased)
-    tft.setTextColor(COLOR_TEXT);
-    tft.setCursor(compass_x - 3, compass_y - indicator_size - 7);
-    tft.print("N");
-    tft.setCursor(compass_x + indicator_size + 2, compass_y - 3);
-    tft.print("E");
-    tft.setCursor(compass_x - 3, compass_y + indicator_size + 2);
-    tft.print("S");
-    tft.setCursor(compass_x - indicator_size - 7, compass_y - 3);
-    tft.print("W");
-
     // Draw Roll/Pitch indicator in bottom-right quadrant
     // UPDATED: Moved the level indicator
     int level_x = 180;  // Keep aligned with compass on x-axis
@@ -360,7 +349,11 @@ void displayGPSPage(void) {
     strcpy(prev_time, "");
     strcpy(prev_date, "");
     prev_fix = -1;
-    prev_speed = -1;  // Force speed update on first draw
+    prev_lat = -999;
+    prev_lon = -999;
+    prev_alt = -999;
+    prev_satellites = -1;
+    prev_speed = -1;
   }
 
   if (!display_data.gps_available) {
@@ -458,58 +451,61 @@ void displayGPSPage(void) {
       prev_alt = display_data.altitude;
     }
 
-    // Make sure the Speed label is visible
-    tft.setCursor(120, 70);
-    tft.setTextColor(COLOR_TEXT);
-    tft.print("Speed:");
+    // Only update speed if it's changed
+    if (prev_speed != display_data.speed) {
+      // Make sure the Speed label is visible
+      tft.setCursor(120, 70);
+      tft.setTextColor(COLOR_TEXT);
+      tft.print("Speed:");
 
-    // Clear just the speed value area
-    tft.fillRect(160, 70, 70, 10, COLOR_BG);
-    tft.setCursor(160, 70);
-    tft.setTextColor(COLOR_VALUE);
-    tft.print(display_data.speed);
-    tft.print(" mph");
+      // Clear just the speed value area
+      tft.fillRect(160, 70, 70, 10, COLOR_BG);
+      tft.setCursor(160, 70);
+      tft.setTextColor(COLOR_VALUE);
+      tft.print(display_data.speed);
+      tft.print(" mph");
 
-    // Speed gauge (simple horizontal bar)
-    int max_speed = 100;  // Maximum speed for display scale
-    int gauge_width = 100;
-    int gauge_height = 8;
-    int gauge_x = 120;
-    int gauge_y = 85;
+      // Speed gauge (simple horizontal bar)
+      int max_speed = 100;  // Maximum speed for display scale
+      int gauge_width = 100;
+      int gauge_height = 8;
+      int gauge_x = 120;
+      int gauge_y = 85;
 
-    // Always clear and redraw the entire gauge area to prevent artifacts
-    tft.fillRect(gauge_x, gauge_y - 2, gauge_width + 2, gauge_height + 4, COLOR_BG);
+      // Always clear and redraw the entire gauge area to prevent artifacts
+      tft.fillRect(gauge_x, gauge_y - 2, gauge_width + 2, gauge_height + 4, COLOR_BG);
 
-    // Draw gauge outline
-    tft.drawRect(gauge_x, gauge_y, gauge_width, gauge_height, COLOR_TEXT);
+      // Draw gauge outline
+      tft.drawRect(gauge_x, gauge_y, gauge_width, gauge_height, COLOR_TEXT);
 
-    // Fill based on speed (with limit)
-    int speed_fill = (display_data.speed > max_speed) ? gauge_width : (display_data.speed * gauge_width / max_speed);
+      // Fill based on speed (with limit)
+      int speed_fill = (display_data.speed > max_speed) ? gauge_width : (display_data.speed * gauge_width / max_speed);
 
-    // Choose color based on speed
-    uint16_t speed_color;
-    if (display_data.speed < 30) {
-      speed_color = ST77XX_GREEN;
-    } else if (display_data.speed < 60) {
-      speed_color = ST77XX_YELLOW;
-    } else {
-      speed_color = ST77XX_RED;
+      // Choose color based on speed
+      uint16_t speed_color;
+      if (display_data.speed < 30) {
+        speed_color = ST77XX_GREEN;
+      } else if (display_data.speed < 60) {
+        speed_color = ST77XX_YELLOW;
+      } else {
+        speed_color = ST77XX_RED;
+      }
+
+      // Always draw filled portion, even if speed is 0 (will draw a 0-width rectangle)
+      if (speed_fill > 0) {
+        tft.fillRect(gauge_x, gauge_y, speed_fill, gauge_height, speed_color);
+      }
+
+      // Update the speed scale indicators
+      tft.setCursor(gauge_x, gauge_y + gauge_height + 2);
+      tft.setTextColor(COLOR_TEXT);
+      tft.print("0");
+
+      tft.setCursor(gauge_x + gauge_width - 15, gauge_y + gauge_height + 2);
+      tft.print("100");
+
+      prev_speed = display_data.speed;
     }
-
-    // Always draw filled portion, even if speed is 0 (will draw a 0-width rectangle)
-    if (speed_fill > 0) {
-      tft.fillRect(gauge_x, gauge_y, speed_fill, gauge_height, speed_color);
-    }
-
-    // Update the speed scale indicators
-    tft.setCursor(gauge_x, gauge_y + gauge_height + 2);
-    tft.setTextColor(COLOR_TEXT);
-    tft.print("0");
-
-    tft.setCursor(gauge_x + gauge_width - 15, gauge_y + gauge_height + 2);
-    tft.print("100");
-
-    prev_speed = display_data.speed;
   } else if (prev_fix != display_data.fix) {
     // If we just lost fix, clear the data area
     tft.fillRect(10, 70, TFT_WIDTH - 20, 60, COLOR_BG);
@@ -526,15 +522,12 @@ void displayEnviroPage(void) {
   // Static variables to track previous values
   static float prev_temp = -999;
   static float prev_humidity = -999;
-  static float prev_pressure = -999;
   static float prev_air_quality = -999;
   static char prev_aq_desc[15] = "";
 
-// Additional values for ENS160 sensor
-#ifdef USE_ENS160_AHT21
+  // Additional values for ENS160 sensor
   static int prev_eco2 = -1;
   static int prev_tvoc = -1;
-#endif
 
   // Additional values for SCD41 CO2 sensor
   static uint16_t prev_co2 = 0;
@@ -565,18 +558,12 @@ void displayEnviroPage(void) {
     tft.setCursor(10, 55);
     tft.print("Humidity:");
 
-#ifndef USE_ENS160_AHT21
-    // Only show pressure for BME680
-    tft.setCursor(10, 70);
-    tft.print("Pressure:");
-#else
     // Show eCO2 and TVOC for ENS160
     tft.setCursor(10, 70);
     tft.print("eCO2:");
 
     tft.setCursor(120, 70);
     tft.print("TVOC:");
-#endif
 
     // CO2 label if SCD41 is available
     if (display_data.co2_available) {
@@ -601,14 +588,10 @@ void displayEnviroPage(void) {
     // Force initial update
     prev_temp = -999;
     prev_humidity = -999;
-    prev_pressure = -999;
     prev_air_quality = -999;
     strcpy(prev_aq_desc, "");
-
-#ifdef USE_ENS160_AHT21
     prev_eco2 = -1;
     prev_tvoc = -1;
-#endif
 
     // Force initial CO2 update
     prev_co2 = 0;
@@ -617,7 +600,7 @@ void displayEnviroPage(void) {
   }
 
   // Check if all environmental sensors are unavailable
-  if (!display_data.temp_available && !display_data.humidity_available && !display_data.pressure_available && !display_data.air_quality_available && !display_data.ens160_available && !display_data.co2_available) {
+  if (!display_data.temp_available && !display_data.humidity_available && !display_data.air_quality_available && !display_data.ens160_available && !display_data.co2_available) {
     // Display unavailable message
     tft.setTextSize(1);
     tft.setTextColor(COLOR_ALERT);
@@ -664,24 +647,6 @@ void displayEnviroPage(void) {
     prev_humidity = display_data.humidity;
   }
 
-#ifndef USE_ENS160_AHT21
-  // Only update pressure if changed (BME680 only)
-  if (prev_pressure != display_data.pressure) {
-    tft.fillRect(120, 70, 70, 10, COLOR_BG);
-    tft.setCursor(120, 70);
-
-    if (display_data.pressure_available) {
-      tft.setTextColor(COLOR_VALUE);
-      tft.print(display_data.pressure, 1);
-      tft.print(" hPa");
-    } else {
-      tft.setTextColor(COLOR_ALERT);
-      tft.print("Not available");
-    }
-
-    prev_pressure = display_data.pressure;
-  }
-#else
   // Update eCO2 and TVOC for ENS160
   if (prev_eco2 != display_data.eco2) {
     tft.fillRect(50, 70, 60, 10, COLOR_BG);
@@ -714,7 +679,6 @@ void displayEnviroPage(void) {
 
     prev_tvoc = display_data.tvoc;
   }
-#endif
 
   // Update CO2 readings if available and changed
   if (display_data.co2_available) {

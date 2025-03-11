@@ -212,7 +212,6 @@ void networkTask(void* pvParameters) {
           wifiClient.write("\n", 1);  // Add newline for better readability
         }
 #endif
-
         // Clean up
         delete msg->doc;
         delete msg;

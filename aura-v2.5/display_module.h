@@ -78,8 +78,8 @@ typedef struct {
   bool imu_available;
 
   // GPS data
-  char time[10];
-  char date[12];
+  char time[12];
+  char date[14];
   int fix;
   float latitude;
   float longitude;
@@ -91,12 +91,10 @@ typedef struct {
   // Environmental data
   float temperature;
   float humidity;
-  float pressure;
   float air_quality;
   char air_quality_description[15];
   bool temp_available;
   bool humidity_available;
-  bool pressure_available;
   bool air_quality_available;
 
   // ENS160 specific data
@@ -105,7 +103,7 @@ typedef struct {
   bool ens160_available;
 
   // SCD41 CO2 sensor data
-  uint16_t co2;        // CO2 concentration in ppm
+  uint16_t co2;  // CO2 concentration in ppm
   bool co2_available;
   char co2_quality_description[15];
 

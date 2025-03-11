@@ -80,7 +80,6 @@ TaskHandle_t networkTaskHandle;
 
 void setup() {
   unsigned long startTime = millis();
-  int wifiRetries = 0;
 
   Serial.begin(115200);
   while (!Serial && (millis() - startTime < 2000)) {  // Wait up to 2 seconds for Serial to connect
@@ -94,6 +93,7 @@ void setup() {
 
   // NeoPixel
   pixels.begin();
+  pixels.setBrightness(64);  // Set to 25% brightness
   pixels.clear();
 
   // Initialize I2C with specified pins and speed
@@ -112,7 +112,6 @@ void setup() {
     display_data.gps_available = false;
     display_data.temp_available = false;
     display_data.humidity_available = false;
-    display_data.pressure_available = false;
     display_data.air_quality_available = false;
     display_data.ens160_available = false;
     // display_data.co2_available is already initialized in enviro_module.cpp
@@ -149,7 +148,7 @@ void setup() {
         "IMU Task",      // Name of the task
         10000,           // Stack size (in words)
         NULL,            // Task input parameter
-        1,               // Priority of the task
+        2,               // Priority of the task
         &imuTaskHandle,  // Task handle
         0                // Core 0
         )
@@ -164,7 +163,7 @@ void setup() {
         NULL,                  // Task input parameter
         1,                     // Priority of the task
         &enviroTaskHandle,     // Task handle
-        0                      // Core 0
+        1                      // Core 1
         )
       != pdPASS) {
     LOG_PRINTLN("Failed to create Environmental Task");

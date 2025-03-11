@@ -161,7 +161,7 @@ bool reconnectSocket(WiFiClient* wifiClient, Adafruit_NeoPixel* pixels) {
 void monitorConnection(WiFiClient* wifiClient, Adafruit_NeoPixel* pixels) {
 #ifdef ENABLE_SOCKET
   if (!wifiClient->connected()) {
-    pixels->setPixelColor(0, pixels->Color(0, 255, 0)); // Set to red on failure
+    pixels->setPixelColor(0, pixels->Color(0, 255, 0));  // Set to red on failure
     pixels->show();
 
     // Attempt to reconnect if the client is disconnected
