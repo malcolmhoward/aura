@@ -41,6 +41,7 @@
 #include "enviro_module.h"
 #include "network_utils.h"
 #include "display_module.h"
+#include "servo_module.h"
 
 // NeoPixel
 #include <Adafruit_NeoPixel.h>
@@ -77,6 +78,7 @@ TaskHandle_t imuTaskHandle;
 TaskHandle_t enviroTaskHandle;
 TaskHandle_t displayTaskHandle;
 TaskHandle_t networkTaskHandle;
+TaskHandle_t servoTaskHandle;
 
 void setup() {
   unsigned long startTime = millis();
@@ -122,6 +124,7 @@ void setup() {
   setupIMU();
   setupGPS();
   setupEnvironmental();
+  setupServo();
 
   pixels.setPixelColor(0, pixels.Color(255, 0, 0));
   pixels.show();
@@ -193,6 +196,19 @@ void setup() {
         )
       != pdPASS) {
     LOG_PRINTLN("Failed to create Network Task");
+  }
+
+  if (xTaskCreatePinnedToCore(
+        servoTask,         // Task function
+        "Servo Task",      // Name of the task
+        10000,             // Stack size (in words)
+        NULL,              // Task input parameter
+        1,                 // Priority of the task
+        &servoTaskHandle,  // Task handle
+        0                  // Core 0
+        )
+      != pdPASS) {
+    LOG_PRINTLN("Failed to create Servo Task");
   }
 }
 

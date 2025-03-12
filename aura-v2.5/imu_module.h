@@ -40,7 +40,6 @@
 #endif
 
 // BNO086 SPI interface pins
-#define BNO086_CS 5     // CS pin on D5 (GPIO5)
 #define BNO086_INT 6    // INT pin on D6 (GPIO6)
 #define BNO086_RST 9    // RST pin on D9 (GPIO9)
 #define BNO086_WAKE 10  // WAKE pin (PS0) on D10 (GPIO10)
@@ -49,6 +48,7 @@
 #define BNO086_SCK A0   // SCK pin on A0 (GPIO18)
 #define BNO086_MISO A1  // MISO pin on A1 (GPIO17)
 #define BNO086_MOSI A2  // MOSI pin on A2 (GPIO16)
+#define BNO086_CS A3    // CS pin on A3 (GPIO15)
 
 // BNO086 SPI configuration
 // NOTE: The SPI bus is shared with the display, so some settings

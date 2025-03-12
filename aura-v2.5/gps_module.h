@@ -60,7 +60,7 @@
 #define GPS_HIGH_BAUDRATE 115200  // Define the high performance baudrate to upgrade to
 #endif
 
-#define GPS_RESET_PIN A4  // Reset pin (GPIO14/A4)
+#define GPS_RESET_PIN 5  // Reset pin on D5 (GPIO5)
 
 // Function prototypes
 void setupGPS();
