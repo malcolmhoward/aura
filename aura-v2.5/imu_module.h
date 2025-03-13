@@ -50,10 +50,13 @@
 #define BNO086_MOSI A2  // MOSI pin on A2 (GPIO16)
 #define BNO086_CS A3    // CS pin on A3 (GPIO15)
 
+// Reset Holds
+#define RESET_HOLD 15   // Time to hold reset line (10ms min)
+#define RESET_WAIT 150  // Time to wait after reset  (90ms + 4ms min)
+
 // BNO086 SPI configuration
-// NOTE: The SPI bus is shared with the display, so some settings
-// are applied only during transactions by the library
-#define BNO086_SPI_SPEED 2000000  // 2MHz for dedicated SPI bus
+#define BNO086_SPI_HIGH_SPEED 2000000  // 2MHz for dedicated SPI bus
+#define BNO086_SPI_LOW_SPEED 500000    // 500KHz for dedicated SPI bus
 
 // Function prototypes
 void setupIMU();

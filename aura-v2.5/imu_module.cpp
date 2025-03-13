@@ -64,21 +64,20 @@ void setupIMU() {
 
   // 3. Put BNO086 in reset
   digitalWrite(BNO086_RST, LOW);
-  delay(10);  // Hold in reset for 10ms
+  delay(RESET_HOLD);  // Hold in reset for 10ms
 
   // 4. Release from reset
   digitalWrite(BNO086_RST, HIGH);
 
   // 5. Wait for BNO086 to initialize
-  delay(100);  // Generous delay
+  delay(RESET_WAIT);  // Generous delay
 
   LOG_PRINTLN(F("Initializing BNO086 SPI communication"));
-  delay(50);  // Additional delay for stability
 
   // Initialize BNO086 with SPI, using the shared SPI bus with the display
   mySPI.begin(BNO086_SCK, BNO086_MISO, BNO086_MOSI, BNO086_CS);
 
-  if (myIMU.beginSPI(BNO086_CS, BNO086_INT, BNO086_RST, BNO086_SPI_SPEED, mySPI) == false) {
+  if (myIMU.beginSPI(BNO086_CS, BNO086_INT, BNO086_RST, BNO086_SPI_HIGH_SPEED, mySPI) == false) {
     LOG_PRINTLN(F("Failed to find BNO08x chip with SPI - IMU functionality disabled"));
     LOG_PRINTLN(F("Verify SPI connections and mode settings"));
 
@@ -90,7 +89,7 @@ void setupIMU() {
     // Try a lower SPI speed as fallback
     LOG_PRINTLN(F("Attempting with lower SPI speed..."));
     delay(100);
-    if (myIMU.beginSPI(BNO086_CS, BNO086_INT, BNO086_RST, 500000, SPI) == false) {
+    if (myIMU.beginSPI(BNO086_CS, BNO086_INT, BNO086_RST, BNO086_SPI_LOW_SPEED, SPI) == false) {
       LOG_PRINTLN(F("SPI initialization still failed with lower speed"));
     } else {
       LOG_PRINTLN(F("SPI initialized with lower speed successfully!"));
@@ -153,18 +152,18 @@ void attemptIMUReinitialization() {
 
   // Reset sequence
   digitalWrite(BNO086_RST, LOW);
-  delay(10);  // Hold in reset for 10ms
+  delay(RESET_HOLD);  // Hold in reset for 10ms
   digitalWrite(BNO086_RST, HIGH);
-  delay(100);  // Wait for BNO086 to initialize
+  delay(RESET_WAIT);  // Wait for BNO086 to initialize
 
   // Try to reinitialize with SPI
-  if (myIMU.beginSPI(BNO086_CS, BNO086_INT, BNO086_RST, BNO086_SPI_SPEED, SPI) == false) {
+  if (myIMU.beginSPI(BNO086_CS, BNO086_INT, BNO086_RST, BNO086_SPI_HIGH_SPEED, SPI) == false) {
     LOG_PRINTLN(F("IMU SPI reinitialization failed"));
 
     // Try with a lower SPI speed
     LOG_PRINTLN(F("Attempting reinitialization with lower SPI speed..."));
     delay(100);
-    if (myIMU.beginSPI(BNO086_CS, BNO086_INT, BNO086_RST, 500000, SPI) == false) {
+    if (myIMU.beginSPI(BNO086_CS, BNO086_INT, BNO086_RST, BNO086_SPI_LOW_SPEED, SPI) == false) {
       LOG_PRINTLN(F("IMU reinitialization failed with lower speed as well"));
       return;
     } else {
@@ -260,9 +259,9 @@ void imuTask(void* pvParameters) {
           // If multiple wake attempts failed, try a hard reset
           LOG_PRINTLN(F("Wake attempts failed, performing hard reset"));
           digitalWrite(BNO086_RST, LOW);
-          delay(10);  // Hold in reset for 10ms
+          delay(RESET_HOLD);  // Hold in reset for 10ms
           digitalWrite(BNO086_RST, HIGH);
-          delay(50);  // Wait for BNO086 to come out of reset
+          delay(RESET_WAIT);  // Wait for BNO086 to come out of reset
 
           // Set flag to trigger reinitialization
           if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
@@ -308,9 +307,9 @@ void imuTask(void* pvParameters) {
 
             // Hard reset the BNO086
             digitalWrite(BNO086_RST, LOW);
-            delay(10);
+            delay(RESET_HOLD);
             digitalWrite(BNO086_RST, HIGH);
-            delay(50);
+            delay(RESET_WAIT);
 
             stuckValueCount = 0;
 
