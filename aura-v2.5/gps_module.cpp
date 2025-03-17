@@ -29,6 +29,11 @@
 // GPS
 SFE_UBLOX_GNSS myGNSS;
 
+#ifdef ENABLE_MQTT
+extern MqttClient mqttClient;
+extern const char topic[];
+#endif
+
 void setupGPS() {
 #ifdef GPS_USE_UART
   // Initialize reset pin
@@ -52,8 +57,9 @@ void setupGPS() {
   delay(100);
 
   // Clear any pending data
-  while (GPS_SERIAL.available())
+  while (GPS_SERIAL.available()) {
     GPS_SERIAL.read();
+  }
 
   // Try to connect with a longer timeout to account for the reset
   if (myGNSS.begin(GPS_SERIAL, 2000) == false) {
@@ -81,8 +87,9 @@ void setupGPS() {
     delay(100);
 
     // Clear any pending data
-    while (GPS_SERIAL.available())
+    while (GPS_SERIAL.available()) {
       GPS_SERIAL.read();
+    }
 
     // Reconnect at new baudrate
     if (myGNSS.begin(GPS_SERIAL, 2000) == false) {

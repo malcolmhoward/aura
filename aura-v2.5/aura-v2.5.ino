@@ -41,7 +41,7 @@
 #include "enviro_module.h"
 #include "network_utils.h"
 #include "display_module.h"
-#include "servo_module.h"
+#include "faceplate_module.h"
 
 // NeoPixel
 #include <Adafruit_NeoPixel.h>
@@ -77,7 +77,7 @@ TaskHandle_t gpsTaskHandle;
 TaskHandle_t imuTaskHandle;
 TaskHandle_t enviroTaskHandle;
 TaskHandle_t displayTaskHandle;
-TaskHandle_t networkTaskHandle;
+TaskHandle_t messagingTaskHandle;
 TaskHandle_t servoTaskHandle;
 
 void setup() {
@@ -121,10 +121,10 @@ void setup() {
   }
 
   // Initialize components
+  setupFaceplate();
   setupIMU();
   setupGPS();
   setupEnvironmental();
-  setupServo();
 
   pixels.setPixelColor(0, pixels.Color(255, 0, 0));
   pixels.show();
@@ -186,13 +186,13 @@ void setup() {
   }
 
   if (xTaskCreatePinnedToCore(
-        networkTask,         // Task function
-        "Network Task",      // Name of the task
-        10000,               // Stack size (in words)
-        NULL,                // Task input parameter
-        1,                   // Priority of the task
-        &networkTaskHandle,  // Task handle
-        1                    // Core 1
+        messagingTask,         // Task function
+        "Messaging Task",      // Name of the task
+        10000,                 // Stack size (in words)
+        NULL,                  // Task input parameter
+        1,                     // Priority of the task
+        &messagingTaskHandle,  // Task handle
+        1                      // Core 1
         )
       != pdPASS) {
     LOG_PRINTLN("Failed to create Network Task");

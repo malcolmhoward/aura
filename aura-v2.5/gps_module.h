@@ -48,6 +48,7 @@
 // UART configuration for Adafruit ESP32-S3 TFT Feather
 #define GPS_UART_TX_PIN 1         // TX pin (GPIO1)
 #define GPS_UART_RX_PIN 2         // RX pin (GPIO2)
+#define GPS_RESET_PIN 5           // Reset pin on D5 (GPIO5)
 #define GPS_BAUDRATE 38400        // Factory default u-blox baudrate
 #define GPS_HIGH_BAUDRATE 115200  // High performance baudrate
 #define GPS_SERIAL Serial1        // Use Serial1 for GPS communications
@@ -57,10 +58,7 @@
 // I2C configuration
 #define GPS_I2C_ADDR 0x42  // Default u-blox I2C address
 // I2C pins are defined in the main sketch (SDA=42, SCL=41 for ESP32-S3 TFT Feather)
-#define GPS_HIGH_BAUDRATE 115200  // Define the high performance baudrate to upgrade to
 #endif
-
-#define GPS_RESET_PIN 5  // Reset pin on D5 (GPIO5)
 
 // Function prototypes
 void setupGPS();

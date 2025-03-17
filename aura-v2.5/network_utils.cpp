@@ -31,13 +31,11 @@
 MqttClient mqttClient(*wifiClient);
 String brokerString;
 const char* broker = NULL;
-int port = 1883;
-const char topic[] = "helmet";
+int port = MQTT_PORT;
+const char topic[] = MQTT_TOPIC;
 #endif
 
 #ifdef ENABLE_SOCKET
-#define SERVER_PORT 3000
-#define SOCKET_RECONNECT_TIMEOUT_MS 5000
 IPAddress serverIP;
 #endif
 

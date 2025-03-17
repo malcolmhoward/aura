@@ -32,6 +32,14 @@
 
 #ifdef ENABLE_MQTT
 #include <ArduinoMqttClient.h>
+
+#define MQTT_PORT 1883
+#define MQTT_TOPIC "helmet"
+#endif
+
+#ifdef ENABLE_SOCKET
+#define SERVER_PORT 3000
+#define SOCKET_RECONNECT_TIMEOUT_MS 5000
 #endif
 
 // Function prototypes

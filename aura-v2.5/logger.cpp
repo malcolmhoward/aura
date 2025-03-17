@@ -135,7 +135,7 @@ static bool queueMessage(const char* device_type, JsonDocument* doc) {
   if (msg == NULL) return false;
 
   msg->deviceType = String(device_type);
-  msg->doc = new JsonDocument(*doc);  // Create a deep copy of the document
+  msg->doc = new JsonDocument(*doc);
 
   if (msg->doc == NULL) {
     delete msg;
@@ -185,9 +185,9 @@ void logger_send_mqtt_json(JsonDocument* doc, const char* device_type,
 }
 #endif
 
-// Network task that processes the message queue
-void networkTask(void* pvParameters) {
-  LOG_PRINTLN(F("Network task started."));
+// Messaging task that processes the message queue
+void messagingTask(void* pvParameters) {
+  LOG_PRINTLN(F("Messaging task started."));
 
   while (true) {
     message_t* msg;
@@ -219,6 +219,6 @@ void networkTask(void* pvParameters) {
     }
 
     // Small delay to prevent CPU hogging
-    vTaskDelay(pdMS_TO_TICKS(5));
+    vTaskDelay(pdMS_TO_TICKS(10));
   }
 }

@@ -59,8 +59,8 @@ void logger_send_mqtt_json(JsonDocument* doc, const char* device_type,
                            MqttClient* mqttClient, const char* topic);
 #endif
 
-// Network task for handling message queue
-void networkTask(void* pvParameters);
+// Messaging task for handling message queue
+void messagingTask(void* pvParameters);
 
 // Convenience macros
 #define LOG_PRINT(x) logger_print(x)

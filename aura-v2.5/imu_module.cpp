@@ -64,7 +64,7 @@ void setupIMU() {
 
   // 3. Put BNO086 in reset
   digitalWrite(BNO086_RST, LOW);
-  delay(RESET_HOLD);  // Hold in reset for 10ms
+  delay(RESET_HOLD);  // Hold in reset
 
   // 4. Release from reset
   digitalWrite(BNO086_RST, HIGH);
@@ -107,7 +107,7 @@ void setupIMU() {
     }
 
     // Set up calibration for head tracking
-    myIMU.setCalibrationConfig(SH2_CAL_ACCEL);
+    myIMU.setCalibrationConfig(SH2_CAL_ACCEL | SH2_CAL_GYRO | SH2_CAL_MAG);
 
     LOG_PRINTLN(F("Enabling rotation vector for tracking..."));
 
@@ -172,7 +172,7 @@ void attemptIMUReinitialization() {
   }
 
   // Re-setup optimal calibration
-  myIMU.setCalibrationConfig(SH2_CAL_ACCEL);
+  myIMU.setCalibrationConfig(SH2_CAL_ACCEL | SH2_CAL_GYRO | SH2_CAL_MAG);
 
   // Re-enable the optimal rotation vector
   if (!myIMU.enableGyroIntegratedRotationVector(10)) {
@@ -276,12 +276,43 @@ void imuTask(void* pvParameters) {
 
     // Handle any resets
     if (myIMU.wasReset()) {
-      LOG_PRINTLN(F("BNO08x was reset - re-enabling optimized rotation vector"));
-      // Try in priority order
-      if (!myIMU.enableGyroIntegratedRotationVector(10)) {
-        if (!myIMU.enableARVRStabilizedRotationVector(10)) {
-          myIMU.enableRotationVector(10);
+      LOG_PRINTLN(F("BNO08x was reset - performing initialization sequence"));
+
+      // Set the calibration config first to ensure sensors are properly calibrated
+      myIMU.setCalibrationConfig(SH2_CAL_ACCEL | SH2_CAL_GYRO | SH2_CAL_MAG);
+
+      // Wait a bit for the sensor to apply calibration settings
+      delay(50);
+
+      // Now try to enable sensors in priority order
+      bool sensorEnabled = false;
+
+      // Try in priority order with proper error checking
+      if (myIMU.enableGyroIntegratedRotationVector(10)) {
+        LOG_PRINTLN(F("Re-enabled Gyro Integrated Rotation Vector"));
+        sensorEnabled = true;
+      } else if (myIMU.enableARVRStabilizedRotationVector(10)) {
+        LOG_PRINTLN(F("Re-enabled AR/VR Stabilized Rotation Vector"));
+        sensorEnabled = true;
+      } else if (myIMU.enableRotationVector(10)) {
+        LOG_PRINTLN(F("Re-enabled Standard Rotation Vector"));
+        sensorEnabled = true;
+      }
+
+      if (!sensorEnabled) {
+        LOG_PRINTLN(F("Failed to enable any rotation vector sensors after reset"));
+
+        // Set IMU as unavailable to trigger full reinitialization
+        if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+          display_data.imu_available = false;
+          xSemaphoreGive(displayMutex);
         }
+      } else {
+        // Update last data time to avoid timeout
+        lastDataTime = currentTime;
+        // Reset counters and variables
+        stuckValueCount = 0;
+        resetAttempts = 0;
       }
     }
 
