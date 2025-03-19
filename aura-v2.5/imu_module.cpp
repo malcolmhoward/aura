@@ -107,7 +107,7 @@ void setupIMU() {
     }
 
     // Set up calibration for head tracking
-    myIMU.setCalibrationConfig(SH2_CAL_ACCEL | SH2_CAL_GYRO | SH2_CAL_MAG);
+    myIMU.setCalibrationConfig(SH2_CAL_ACCEL);
 
     LOG_PRINTLN(F("Enabling rotation vector for tracking..."));
 
@@ -172,7 +172,7 @@ void attemptIMUReinitialization() {
   }
 
   // Re-setup optimal calibration
-  myIMU.setCalibrationConfig(SH2_CAL_ACCEL | SH2_CAL_GYRO | SH2_CAL_MAG);
+  myIMU.setCalibrationConfig(SH2_CAL_ACCEL);
 
   // Re-enable the optimal rotation vector
   if (!myIMU.enableGyroIntegratedRotationVector(10)) {
@@ -279,7 +279,7 @@ void imuTask(void* pvParameters) {
       LOG_PRINTLN(F("BNO08x was reset - performing initialization sequence"));
 
       // Set the calibration config first to ensure sensors are properly calibrated
-      myIMU.setCalibrationConfig(SH2_CAL_ACCEL | SH2_CAL_GYRO | SH2_CAL_MAG);
+      myIMU.setCalibrationConfig(SH2_CAL_ACCEL);
 
       // Wait a bit for the sensor to apply calibration settings
       delay(50);
