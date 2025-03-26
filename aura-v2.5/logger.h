@@ -31,6 +31,7 @@
 #include <freertos/semphr.h>
 #include <freertos/queue.h>
 #include <WiFi.h>
+#include "config.h"
 
 // Message structure for the queue
 typedef struct {

@@ -30,6 +30,7 @@
 Servo servo1, servo2;
 servo_data_t servo_data;
 SemaphoreHandle_t servoMutex = NULL;
+volatile bool buttonToggleRequested = false;
 
 #ifdef USE_NEOPIXELS
 // NeoPixel objects - one per LED pin
@@ -50,11 +51,18 @@ void IRAM_ATTR buttonInterruptHandler() {
 
   // Debounce in the ISR
   if (interruptTime - lastInterruptTime > faceplateMoveTime) {
+    // Set a flag to toggle the state - can't safely call toggleFaceplateState from ISR
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
     // Notify the servo task that a button press has occurred
     if (servoTaskHandle != NULL) {
       // High priority notification from interrupt context
-      BaseType_t xHigherPriorityTaskWoken = pdFALSE;
       vTaskNotifyGiveFromISR(servoTaskHandle, &xHigherPriorityTaskWoken);
+
+      // Also set a flag to indicate this was a button press
+      // This can be a simple volatile bool buttonPressed = true
+      buttonToggleRequested = true;
+
       if (xHigherPriorityTaskWoken) {
         portYIELD_FROM_ISR();
       }
@@ -218,6 +226,59 @@ void toggleFaceplateState() {
       // Log the state change
       LOG_PRINT(F("Faceplate state toggled to: "));
       LOG_PRINTLN(servo_data.faceplate_state ? "Closed" : "Open");
+
+      // Notify the servo task
+      if (servoTaskHandle != NULL) {
+        xTaskNotifyGive(servoTaskHandle);
+      }
+    }
+    xSemaphoreGive(servoMutex);
+  }
+}
+
+// Explicitly open the faceplate - new function for MQTT control
+void openFaceplate() {
+  unsigned long currentTime = millis();
+
+  if (xSemaphoreTake(servoMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+    // Only set to open (false) if currently closed and enough time has passed
+    if (servo_data.faceplate_state == true && (currentTime - servo_data.last_toggle_time > faceplateMoveTime)) {
+
+      servo_data.faceplate_state = false;  // Open = false
+      servo_data.last_toggle_time = currentTime;
+
+      LOG_PRINTLN(F("Opening faceplate"));
+
+      // Notify the servo task
+      if (servoTaskHandle != NULL) {
+        xTaskNotifyGive(servoTaskHandle);
+      }
+    } else if (servo_data.faceplate_state == false) {
+      LOG_PRINTLN(F("Faceplate already open, ignoring command"));
+    }
+    xSemaphoreGive(servoMutex);
+  }
+}
+
+// Explicitly close the faceplate - new function for MQTT control
+void closeFaceplate() {
+  unsigned long currentTime = millis();
+
+  if (xSemaphoreTake(servoMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+    // Only set to closed (true) if currently open and enough time has passed
+    if (servo_data.faceplate_state == false && (currentTime - servo_data.last_toggle_time > faceplateMoveTime)) {
+
+      servo_data.faceplate_state = true;  // Closed = true
+      servo_data.last_toggle_time = currentTime;
+
+      LOG_PRINTLN(F("Closing faceplate"));
+
+      // Notify the servo task
+      if (servoTaskHandle != NULL) {
+        xTaskNotifyGive(servoTaskHandle);
+      }
+    } else if (servo_data.faceplate_state == true) {
+      LOG_PRINTLN(F("Faceplate already closed, ignoring command"));
     }
     xSemaphoreGive(servoMutex);
   }
@@ -238,12 +299,17 @@ void servoTask(void *pvParameters) {
   while (true) {
     // Wait for notification from the interrupt handler
     // Will wait indefinitely until a notification is received
-    // We don't need the notification value itself, just the fact that we were notified
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    LOG_PRINTLN("Servo Task Notified.");
 
-    // If we're here, the button was pressed
-    LOG_PRINTLN(F("Button interrupt received, toggling faceplate state"));
-    toggleFaceplateState();
+    // Check if this was a button press notification
+    if (buttonToggleRequested) {
+      // Toggle the state
+      toggleFaceplateState();
+      buttonToggleRequested = false;
+
+      // No need to call xTaskNotifyGive again since toggleFaceplateState now does that
+    }
 
     // Get current servo data with mutex protection
     bool newFaceplateState = currentFaceplateState;

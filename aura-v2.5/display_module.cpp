@@ -22,12 +22,12 @@
  * part of the project and are adopted by the project author(s).
  */
 
+#include <string.h>
 #include "display_module.h"
 #include "enviro_module.h"  // For ENS160/SCD41 defines
 #include "imu_module.h"     // For IMU sensor defines
 #include "gps_module.h"     // For GPS functionality
 #include "logger.h"
-#include <string.h>
 
 extern char ssid[];
 

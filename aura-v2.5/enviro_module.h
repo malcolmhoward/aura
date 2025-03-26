@@ -33,6 +33,7 @@
 #include <Adafruit_Sensor.h>
 #include <ScioSense_ENS160.h>   // ScioSense ENS160 library
 #include <SensirionI2cScd4x.h>  // Sensirion SCD4x library for SCD41 CO2 sensor
+#include "config.h"
 
 // CO2 thresholds (in ppm)
 #define CO2_EXCELLENT 600

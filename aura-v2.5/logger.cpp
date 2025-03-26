@@ -22,8 +22,8 @@
  * part of the project and are adopted by the project author(s).
  */
 
-#include "logger.h"
 #include <stdarg.h>
+#include "logger.h"
 
 // Mutex for protecting serial output
 static SemaphoreHandle_t serialMutex = NULL;

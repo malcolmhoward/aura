@@ -32,7 +32,8 @@
 #include <freertos/semphr.h>
 #include <Adafruit_Sensor.h>
 #include <SPI.h>
-#include "SparkFun_BNO08x_Arduino_Library.h"  // Using the SparkFun library
+#include <SparkFun_BNO08x_Arduino_Library.h>  // Using the SparkFun library
+#include "config.h"
 
 
 #ifdef ENABLE_MQTT

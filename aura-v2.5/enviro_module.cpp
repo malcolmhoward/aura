@@ -191,6 +191,23 @@ void attemptEnviroReinitialization() {
   }
 }
 
+// Textify the potential explanation of the difference in co2 to eco2
+String getCO2SourceAnalysis(uint16_t co2, uint16_t eco2) {
+  int diff = co2 - eco2;
+
+  if (diff > 400) {
+    return "Human respiration dominant";
+  } else if (diff > 200) {
+    return "Mainly respiration";
+  } else if (abs(diff) <= 200) {
+    return "Mixed sources";
+  } else if (diff < -200) {
+    return "Chemical sources dominant";
+  }
+
+  return "Unknown sources";
+}
+
 // Environmental sensor task runs every 5 seconds
 void enviroTask(void* pvParameters) {
   float temperature = 0.0;
@@ -293,8 +310,7 @@ void enviroTask(void* pvParameters) {
 
     /* Prepare data for sending */
     doc["device"] = "Enviro";
-    doc["temp_c"] = temperature;
-    doc["temp_f"] = (temperature * 9.0 / 5.0) + 32.0;  // Convert to Fahrenheit
+    doc["temp"] = temperature;
     doc["humidity"] = humidity;
     doc["tvoc_ppb"] = tvoc;
     doc["eco2_ppm"] = eco2;
@@ -303,6 +319,7 @@ void enviroTask(void* pvParameters) {
       doc["co2_ppm"] = co2_ppm;
       doc["co2_quality"] = getCO2QualityDescription(co2_ppm);
       doc["co2_eco2_diff"] = (int)co2_ppm - eco2;
+      doc["co2_source_analysis"] = getCO2SourceAnalysis(co2_ppm, eco2);
     }
 
     doc["air_quality"] = air_quality_score;
@@ -319,13 +336,13 @@ void enviroTask(void* pvParameters) {
     else
       doc["air_quality_description"] = "Very Poor";
 
-    // Add heat index calculation (Fahrenheit)
-    float temp_f = (temperature * 9.0 / 5.0) + 32.0;
-    if (temp_f >= 80.0 && humidity >= 40) {
-      // Simplified heat index calculation
-      float heat_index_f = -42.379 + 2.04901523 * temp_f + 10.14333127 * humidity - 0.22475541 * temp_f * humidity - 0.00683783 * temp_f * temp_f - 0.05481717 * humidity * humidity + 0.00122874 * temp_f * temp_f * humidity + 0.00085282 * temp_f * humidity * humidity - 0.00000199 * temp_f * temp_f * humidity * humidity;
-      doc["heat_index_f"] = heat_index_f;
-      doc["heat_index_c"] = (heat_index_f - 32.0) * 5.0 / 9.0;
+    // Add heat index calculation (Celsius)
+    if (temperature >= 26.7 && humidity >= 40) {
+      // Convert temperature to Celsius for the formula
+      // Using the Steadman formula adapted for Celsius
+      float heat_index_c = temperature + 0.348 * humidity - 0.09 * temperature * humidity / 100 + 0.02 * temperature * temperature - 0.0312 * temperature * temperature * humidity / 100 + 0.0164 * humidity * humidity / 100 - 0.0022 * temperature * humidity * humidity / 10000 - 0.0047 * temperature * temperature * temperature / 100 + 0.001 * temperature * temperature * humidity * humidity / 10000;
+
+      doc["heat_index_c"] = heat_index_c;
     }
 
     // Add dew point calculation
@@ -333,8 +350,7 @@ void enviroTask(void* pvParameters) {
     float b = 237.7;
     float alpha = ((a * temperature) / (b + temperature)) + log(humidity / 100.0);
     float dew_point = (b * alpha) / (a - alpha);
-    doc["dew_point_c"] = dew_point;
-    doc["dew_point_f"] = (dew_point * 9.0 / 5.0) + 32.0;
+    doc["dew_point"] = dew_point;
 
     // Update display data
     if (xSemaphoreTake(displayMutex, pdMS_TO_TICKS(10)) == pdTRUE) {

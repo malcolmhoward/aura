@@ -25,14 +25,19 @@
 #include "network_utils.h"
 #include "logger.h"
 #include "display_module.h"
+#include "faceplate_module.h"  // Added for faceplate control
 
 #ifdef ENABLE_MQTT
 // MQTT configuration
-MqttClient mqttClient(*wifiClient);
+extern WiFiClient wifiClient;
+MqttClient mqttClient(wifiClient);
 String brokerString;
 const char* broker = NULL;
 int port = MQTT_PORT;
 const char topic[] = MQTT_TOPIC;
+
+// Forward declaration of callback function
+void onMqttMessageReceived(int messageSize);
 #endif
 
 #ifdef ENABLE_SOCKET
@@ -95,34 +100,32 @@ void setupMQTT(WiFiClient* wifiClient, Adafruit_NeoPixel* pixels) {
 
   if (!mqttClient.connect(broker, port)) {
     LOG_PRINT("MQTT connection failed! Error code = ");
-    LOG_PRINTLN(mqttClient.connectError());
+    LOG_PRINTLN(String(mqttClient.connectError()));
     return;
   }
 
   LOG_PRINTLN("You're connected to the MQTT broker!");
-  LOG_PRINTLN();
+  LOG_PRINTLN("");
 
   pixels->setPixelColor(0, pixels->Color(0, 0, 255));  // Blue on MQTT success
   pixels->show();
 
   mqttClient.setKeepAliveInterval(5);
   mqttClient.setCleanSession(true);
-  //mqttClient.setMaxPacketSize(512);
-  //mqttClient.setQos(0);
 
-  //LOG_PRINT("Subscribing to topic: ");
-  //LOG_PRINTLN(topic);
-  //LOG_PRINTLN();
+  // Set the callback for incoming messages
+  mqttClient.onMessage(onMqttMessageReceived);
 
-  // subscribe to a topic
-  //mqttClient.subscribe(topic);
+  LOG_PRINT("Subscribing to topic: ");
+  LOG_PRINTLN(topic);
+  LOG_PRINTLN("");
 
-  // topics can be unsubscribed using:
-  //mqttClient.unsubscribe(topic);
+  // Subscribe to the helmet topic for receiving commands
+  mqttClient.subscribe(topic);
 
-  // LOG_PRINT("Waiting for messages on topic: ");
-  // LOG_PRINTLN(topic);
-  // LOG_PRINTLN();
+  LOG_PRINT("Waiting for messages on topic: ");
+  LOG_PRINTLN(topic);
+  LOG_PRINTLN("");
 }
 #endif
 
@@ -157,6 +160,11 @@ bool reconnectSocket(WiFiClient* wifiClient, Adafruit_NeoPixel* pixels) {
 #endif
 
 void monitorConnection(WiFiClient* wifiClient, Adafruit_NeoPixel* pixels) {
+#ifdef ENABLE_MQTT
+  // Poll for new MQTT messages
+  mqttClient.poll();
+#endif
+
 #ifdef ENABLE_SOCKET
   if (!wifiClient->connected()) {
     pixels->setPixelColor(0, pixels->Color(0, 255, 0));  // Set to red on failure
@@ -188,3 +196,8 @@ void updateWiFiDisplayData(WiFiClient* wifiClient, Adafruit_NeoPixel* pixels) {
     xSemaphoreGive(displayMutex);
   }
 }
+
+// MQTT message callback function - implemented in mqtt_callback.cpp
+#ifdef ENABLE_MQTT
+extern void onMqttMessageReceived(int messageSize);
+#endif

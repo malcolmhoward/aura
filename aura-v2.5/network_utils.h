@@ -29,17 +29,15 @@
 #include <WiFi.h>
 #include "esp_wifi.h"
 #include <Adafruit_NeoPixel.h>
+#include <ArduinoJson.h>
+#include "config.h"
 
 #ifdef ENABLE_MQTT
 #include <ArduinoMqttClient.h>
 
-#define MQTT_PORT 1883
-#define MQTT_TOPIC "helmet"
-#endif
-
-#ifdef ENABLE_SOCKET
-#define SERVER_PORT 3000
-#define SOCKET_RECONNECT_TIMEOUT_MS 5000
+// Declare the global MQTT client
+extern MqttClient mqttClient;
+extern const char topic[];
 #endif
 
 // Function prototypes
@@ -48,6 +46,7 @@ void monitorConnection(WiFiClient* wifiClient, Adafruit_NeoPixel* pixels);
 
 #ifdef ENABLE_MQTT
 void setupMQTT(WiFiClient* wifiClient, Adafruit_NeoPixel* pixels);
+void onMqttMessageReceived(int messageSize);  // MQTT message callback
 #endif
 
 #ifdef ENABLE_SOCKET

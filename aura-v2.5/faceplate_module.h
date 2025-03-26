@@ -33,30 +33,6 @@
 #include <ArduinoJson.h>
 #include <Adafruit_NeoPixel.h>
 
-// Servo pins for ESP32-S3 TFT Feather
-#define SERVO1_PIN 12
-#define SERVO2_PIN 13
-
-// LED pins
-#define LED1_PIN A4
-#define LED2_PIN A5
-
-// Button pins
-#define BUTTON_PIN 11
-
-// Define servo angle limits
-#define OPEN_ANGLE_DEFAULT 20
-#define CLOSED_ANGLE_DEFAULT 80
-
-// LED/NeoPixel configuration
-//#define USE_NEOPIXELS // define for NeoPixels vs. regular LEDs
-
-// NeoPixel settings
-#define NEOPIXEL_BRIGHTNESS 64  // 0-255
-#define NEOPIXEL_COLOR_R 255    // Red component (0-255)
-#define NEOPIXEL_COLOR_G 255    // Green component (0-255)
-#define NEOPIXEL_COLOR_B 255    // Blue component (0-255)
-
 // Create a mutex for servo data
 extern SemaphoreHandle_t servoMutex;
 
@@ -76,7 +52,9 @@ extern servo_data_t servo_data;
 void setupFaceplate();
 void buttonInterruptHandler();  // ISR handler
 void servoTask(void *pvParameters);
-void toggleMaskState();
+void toggleFaceplateState();  // Toggle between open and closed
+void openFaceplate();         // Explicitly open the faceplate
+void closeFaceplate();        // Explicitly close the faceplate
 void updateLEDs(bool isClosed);
 
 #endif  // FACEPLATE_MODULE_H

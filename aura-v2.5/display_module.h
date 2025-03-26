@@ -32,23 +32,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include <WiFi.h>
-
-// TFT Display pins for ESP32-S3 TFT Feather
-#define TFT_CS 7
-#define TFT_DC 39
-#define TFT_RST 40
-#define TFT_BL 45
-#define TFT_PWR 21
-
-// Display dimensions
-#define TFT_WIDTH 240
-#define TFT_HEIGHT 135
-
-// Display configuration
-#define PAGE_CHANGE_INTERVAL 8000  // 8 seconds per page
-
-// Anti-flickering refresh rate (to reduce screen clearing frequency)
-#define DISPLAY_REFRESH_RATE_MS 500
+#include "config.h"
 
 // Enum for display pages
 typedef enum {
