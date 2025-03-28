@@ -91,8 +91,9 @@
 #define BUTTON_PIN 11
 
 // Define servo angle limits
-#define OPEN_ANGLE_DEFAULT 20
-#define CLOSED_ANGLE_DEFAULT 80
+#define OPEN_ANGLE_DEFAULT 0
+#define CLOSED_ANGLE_DEFAULT 77
+#define OPEN_STRUGGLE_BACKOFF 1
 
 // LED configuration
 //#define USE_NEOPIXELS // Uncomment to use NeoPixels instead of regular LEDs

@@ -185,16 +185,17 @@ void setupFaceplate() {
   // Move servos to initial closed position with verification
   int closed_angle = CLOSED_ANGLE_DEFAULT;
 
-  // Move and verify first servo
-  LOG_PRINT(F("Moving servo1 to closed position: "));
-  LOG_PRINTLN(String(closed_angle));
-  servo1.write(closed_angle);
-
   // For the second servo, use simple inversion (180-angle)
   int servo2_angle = 180 - closed_angle;
 
+  // Move and verify first servo
+  LOG_PRINT(F("Moving servo1 to closed position: "));
+  LOG_PRINTLN(String(closed_angle));
   LOG_PRINT(F("Moving servo2 to closed position: "));
   LOG_PRINTLN(String(servo2_angle));
+
+  // Move both servos
+  servo1.write(closed_angle);
   servo2.write(servo2_angle);
 
   // Initial state is closed, so turn on LEDs
@@ -343,15 +344,17 @@ void servoTask(void *pvParameters) {
         vTaskDelay(pdMS_TO_TICKS(faceplateMoveTime));
       }
 
-      // Move servo1
-      servo1.write(targetAngle);
-
-      // Move servo2 with inverted angle
+      // Servo2 with inverted angle
       servo2_angle = 180 - targetAngle;
       LOG_PRINT(F("Servo2 angle: "));
       LOG_PRINTLN(String(servo2_angle));
+
+      // Move both servos
+      servo1.write(targetAngle);
       servo2.write(servo2_angle);
 
+      // This wait is so we don't turn on the LEDs until the faceplate movement has completed
+      // when closing. i.e. We light up the eyes once the plate is closed.
       if (!currentFaceplateState) {
         // Wait for servos to complete their movement
         // Typical servo movement takes ~300-500ms for a full sweep
@@ -360,6 +363,28 @@ void servoTask(void *pvParameters) {
 
       // Update LEDs based on new state
       updateLEDs(newFaceplateState);
+
+      // This section is to "help" the servos on opening the faceplate. It's common for the
+      // servos to struggle when they reach the peak. This alleviates that struggle by backing
+      // off a bit at the end. You can modify OPEN_STRUGGLE_BACKOFF to be greater if needed.
+      if (currentFaceplateState) {
+        // Wait for servos to complete their movement
+        // Typical servo movement takes ~300-500ms for a full sweep
+        vTaskDelay(pdMS_TO_TICKS(faceplateMoveTime));
+
+        targetAngle += OPEN_STRUGGLE_BACKOFF;
+        int servo2_angle = 180 - targetAngle;
+
+        // Log once before moving both servos
+        LOG_PRINT(F("Moving servos to positions: "));
+        LOG_PRINT(String(targetAngle));
+        LOG_PRINT(F(" and "));
+        LOG_PRINTLN(String(servo2_angle));
+
+        // Move both servos
+        servo1.write(targetAngle);
+        servo2.write(servo2_angle);
+      }
 
       // Update local state
       currentFaceplateState = newFaceplateState;
