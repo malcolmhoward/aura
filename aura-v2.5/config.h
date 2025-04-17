@@ -125,6 +125,9 @@
 #define BNO086_SPI_HIGH_SPEED 2000000  // 2MHz for dedicated SPI bus
 #define BNO086_SPI_LOW_SPEED 500000    // 500KHz for dedicated SPI bus
 
+// General Config
+#define IMU_TIME_BETWEEN_REPORTS 100   // Time in ms between IMU reports
+
 // =========== ENVIRONMENTAL SENSORS CONFIGURATION ===========
 
 // CO2 thresholds (in ppm)

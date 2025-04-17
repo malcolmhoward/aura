@@ -112,14 +112,14 @@ void setupIMU() {
     LOG_PRINTLN(F("Enabling rotation vector for tracking..."));
 
     // Try to enable the optimal rotation vector type
-    if (myIMU.enableGyroIntegratedRotationVector(10) == true) {
+    if (myIMU.enableGyroIntegratedRotationVector(IMU_TIME_BETWEEN_REPORTS) == true) {
       LOG_PRINTLN(F("Gyro Integrated Rotation Vector enabled"));
     } else {
       // Fall back to standard options if needed
-      if (myIMU.enableARVRStabilizedRotationVector(10) == true) {
+      if (myIMU.enableARVRStabilizedRotationVector(IMU_TIME_BETWEEN_REPORTS) == true) {
         LOG_PRINTLN(F("AR/VR Stabilized Rotation Vector enabled"));
       } else {
-        if (myIMU.enableRotationVector(10) == true) {
+        if (myIMU.enableRotationVector(IMU_TIME_BETWEEN_REPORTS) == true) {
           LOG_PRINTLN(F("Standard Rotation Vector enabled"));
         } else {
           LOG_PRINTLN(F("Could not enable any rotation vector"));
@@ -175,9 +175,9 @@ void attemptIMUReinitialization() {
   myIMU.setCalibrationConfig(SH2_CAL_ACCEL);
 
   // Re-enable the optimal rotation vector
-  if (!myIMU.enableGyroIntegratedRotationVector(10)) {
-    if (!myIMU.enableARVRStabilizedRotationVector(10)) {
-      myIMU.enableRotationVector(10);
+  if (!myIMU.enableGyroIntegratedRotationVector(IMU_TIME_BETWEEN_REPORTS)) {
+    if (!myIMU.enableARVRStabilizedRotationVector(IMU_TIME_BETWEEN_REPORTS)) {
+      myIMU.enableRotationVector(IMU_TIME_BETWEEN_REPORTS);
     }
   }
 
@@ -235,9 +235,9 @@ void imuTask(void* pvParameters) {
       if (myIMU.wasReset()) {
         LOG_PRINTLN(F("BNO086 was reset during timeout - re-enabling features"));
         // Reset was detected - re-enable rotation vector
-        if (!myIMU.enableGyroIntegratedRotationVector(10)) {
-          if (!myIMU.enableARVRStabilizedRotationVector(10)) {
-            myIMU.enableRotationVector(10);
+        if (!myIMU.enableGyroIntegratedRotationVector(IMU_TIME_BETWEEN_REPORTS)) {
+          if (!myIMU.enableARVRStabilizedRotationVector(IMU_TIME_BETWEEN_REPORTS)) {
+            myIMU.enableRotationVector(IMU_TIME_BETWEEN_REPORTS);
           }
         }
         resetAttempts = 0;           // Clear attempt counter
@@ -288,13 +288,13 @@ void imuTask(void* pvParameters) {
       bool sensorEnabled = false;
 
       // Try in priority order with proper error checking
-      if (myIMU.enableGyroIntegratedRotationVector(10)) {
+      if (myIMU.enableGyroIntegratedRotationVector(IMU_TIME_BETWEEN_REPORTS)) {
         LOG_PRINTLN(F("Re-enabled Gyro Integrated Rotation Vector"));
         sensorEnabled = true;
-      } else if (myIMU.enableARVRStabilizedRotationVector(10)) {
+      } else if (myIMU.enableARVRStabilizedRotationVector(IMU_TIME_BETWEEN_REPORTS)) {
         LOG_PRINTLN(F("Re-enabled AR/VR Stabilized Rotation Vector"));
         sensorEnabled = true;
-      } else if (myIMU.enableRotationVector(10)) {
+      } else if (myIMU.enableRotationVector(IMU_TIME_BETWEEN_REPORTS)) {
         LOG_PRINTLN(F("Re-enabled Standard Rotation Vector"));
         sensorEnabled = true;
       }
