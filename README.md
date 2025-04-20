@@ -21,12 +21,12 @@ The latest version of AURA with significant improvements including multitasking,
 
 **Libraries Required:**
 - [Wire](https://www.arduino.cc/reference/en/language/functions/communication/wire/) - For I2C communication
-- [SPI](https://www.arduino.cc/reference/en/language/functions/communication/spi/) - For SPI devices
+- [SPI](https://www.arduino.cc/reference/en/language/functions/communication/SPI/) - For SPI devices
 - [WiFi](https://www.arduino.cc/reference/en/libraries/wifi/) - For network connectivity
 - [ArduinoJson](https://arduinojson.org/) - For structured data handling
 - [FreeRTOS](https://freertos.org/) - For multitasking operations
 - [Adafruit_GFX](https://github.com/adafruit/Adafruit-GFX-Library) - Graphics library
-- [Adafruit_ST7789](https://github.com/adafruit/Adafruit-ST7789-Library) - TFT display driver
+- [Adafruit_ST7789](https://github.com/adafruit/Adafruit-ST7735-Library) - TFT display driver
 - [Adafruit_NeoPixel](https://github.com/adafruit/Adafruit_NeoPixel) - For controlling NeoPixels
 - [ESP32Servo](https://github.com/madhephaestus/ESP32Servo) - For servo control
 - [SparkFun BNO08x Arduino Library](https://github.com/sparkfun/SparkFun_BNO08x_Arduino_Library) - For IMU
@@ -58,7 +58,7 @@ A transitional version used to test newer hardware.
 
 **Libraries Required:**
 - [Wire](https://www.arduino.cc/reference/en/language/functions/communication/wire/)
-- [SPI](https://www.arduino.cc/reference/en/language/functions/communication/spi/)
+- [SPI](https://www.arduino.cc/reference/en/language/functions/communication/SPI/)
 - [Adafruit_GFX](https://github.com/adafruit/Adafruit-GFX-Library)
 - [Adafruit_SSD1306](https://github.com/adafruit/Adafruit_SSD1306)
 - [ESP32Servo](https://github.com/madhephaestus/ESP32Servo)
