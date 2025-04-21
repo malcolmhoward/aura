@@ -22,39 +22,21 @@
  * part of the project and are adopted by the project author(s).
  */
 
+#ifndef COMMAND_PROCESSOR_H
+#define COMMAND_PROCESSOR_H
+
+#include <Arduino.h>
 #include <ArduinoJson.h>
-#include "network_utils.h"
 #include "logger.h"
 #include "faceplate_module.h"
-#include "command_processor.h"
-#include "config.h"
 
-#ifdef ENABLE_MQTT
+// Common function to process command JSON regardless of source (MQTT or Serial)
+bool processCommandJson(const char* jsonString, size_t length);
 
-// MQTT message callback function
-void onMqttMessageReceived(int messageSize) {
-  // Only process if the message isn't too large
-  if (messageSize > 512) {
-    LOG_PRINTLN(F("Received message is too large to process"));
-    // Skip the message
-    while (mqttClient.available()) {
-      mqttClient.read();
-    }
-    return;
-  }
+// Function to check and process serial commands
+void checkSerialCommands();
 
-  // Create a buffer for the message
-  char message[messageSize + 1];
-  int i = 0;
+// Initialize the serial command processor
+void setupSerialCommands();
 
-  // Read the message
-  while (mqttClient.available() && i < messageSize) {
-    message[i++] = (char)mqttClient.read();
-  }
-  message[i] = '\0';  // Null terminate
-
-  // Forward to the common command processor
-  processCommandJson(message, messageSize);
-}
-
-#endif  // ENABLE_MQTT
+#endif // COMMAND_PROCESSOR_H

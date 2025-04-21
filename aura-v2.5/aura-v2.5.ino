@@ -42,6 +42,7 @@
 #include "network_utils.h"
 #include "display_module.h"
 #include "faceplate_module.h"
+#include "command_processor.h"
 
 // NeoPixel
 #include <Adafruit_NeoPixel.h>
@@ -125,6 +126,7 @@ void setup() {
   setupIMU();
   setupGPS();
   setupEnvironmental();
+  setupSerialCommands();
 
   pixels.setPixelColor(0, pixels.Color(255, 0, 0));
   pixels.show();
@@ -213,8 +215,11 @@ void setup() {
 }
 
 void loop() {
-  // Just monitor the network connection
+  // Monitor the network connection
   monitorConnection(&wifiClient, &pixels);
+
+  // Check for serial commands
+  checkSerialCommands();
 
   // Use a small delay to prevent tight loop
   vTaskDelay(pdMS_TO_TICKS(100));
