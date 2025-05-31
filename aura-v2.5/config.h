@@ -33,6 +33,9 @@
 // Enable Socket support (disable if using MQTT)
 //#define ENABLE_SOCKET
 
+// Enable Adafruit ESP32-S3 Reverse TFT Feather support
+#define ESP32_S3_REVERSE_TFT
+
 // =========== NETWORK CONFIGURATION ===========
 
 // MQTT settings (when ENABLE_MQTT is defined)
@@ -50,8 +53,13 @@
 //#define GPS_USE_I2C  // Use I2C interface for GPS
 
 // GPS UART settings
+#ifdef ESP32_S3_REVERSE_TFT
+#define GPS_UART_TX_PIN 39        // TX pin (GPIO39)
+#define GPS_UART_RX_PIN 38        // RX pin (GPIO38)
+#else
 #define GPS_UART_TX_PIN 1         // TX pin (GPIO1)
 #define GPS_UART_RX_PIN 2         // RX pin (GPIO2)
+#endif
 #define GPS_RESET_PIN 5           // Reset pin on D5 (GPIO5)
 #define GPS_BAUDRATE 38400        // Factory default u-blox baudrate
 #define GPS_HIGH_BAUDRATE 115200  // High performance baudrate
@@ -63,11 +71,19 @@
 // =========== DISPLAY CONFIGURATION ===========
 
 // TFT Display pins
+#ifdef ESP32_S3_REVERSE_TFT
+#define TFT_CS 42
+#define TFT_DC 40
+#define TFT_RST 41
+#define TFT_BL 45
+#define TFT_PWR 7
+#else
 #define TFT_CS 7
 #define TFT_DC 39
 #define TFT_RST 40
 #define TFT_BL 45
 #define TFT_PWR 21
+#endif
 
 // Display dimensions
 #define TFT_WIDTH 240
@@ -89,6 +105,12 @@
 
 // Button pins
 #define BUTTON_PIN 11
+
+#ifdef ESP32_S3_REVERSE_TFT
+// Button pins for manual page control
+#define PREV_PAGE_BUTTON_PIN 1  // D1 - Previous page (active HIGH)
+#define NEXT_PAGE_BUTTON_PIN 2  // D2 - Next page (active HIGH)
+#endif
 
 // Define servo angle limits
 #define OPEN_ANGLE_DEFAULT 0
@@ -137,7 +159,12 @@
 #define CO2_POOR 1500
 
 // I2C pins for ESP32-S3 TFT Feather
+#ifdef ESP32_S3_REVERSE_TFT
+#define SDA_PIN 3
+#define SCL_PIN 4
+#else
 #define SDA_PIN 42
 #define SCL_PIN 41
+#endif
 
 #endif // CONFIG_H

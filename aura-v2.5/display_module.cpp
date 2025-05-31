@@ -45,6 +45,14 @@ display_data_t display_data;
 int current_page = PAGE_IMU;
 unsigned long last_page_change = 0;
 
+#ifdef ESP32_S3_REVERSE_TFT
+// Button control variables
+volatile bool prevPageRequested = false;
+volatile bool nextPageRequested = false;
+volatile unsigned long lastButtonTime = 0;
+const unsigned long BUTTON_DEBOUNCE_MS = 500;
+#endif
+
 // Initialize display
 Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
 
@@ -59,6 +67,37 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
 #define COLOR_GOOD ST77XX_GREEN
 #define COLOR_TEXT ST77XX_WHITE
 #define COLOR_VALUE ST77XX_YELLOW
+
+#ifdef ESP32_S3_REVERSE_TFT
+void setupPageButtons(void) {
+  // Setup page control buttons
+  // D1 and D2 are pulled LOW by default, go HIGH when pressed
+  pinMode(PREV_PAGE_BUTTON_PIN, INPUT);  // No pullup needed - already pulled LOW
+  pinMode(NEXT_PAGE_BUTTON_PIN, INPUT);  // No pullup needed - already pulled LOW
+
+  // Attach interrupts - trigger on RISING edge for D1/D2 (LOW to HIGH when pressed)
+  attachInterrupt(digitalPinToInterrupt(PREV_PAGE_BUTTON_PIN), prevPageButtonHandler, RISING);
+  attachInterrupt(digitalPinToInterrupt(NEXT_PAGE_BUTTON_PIN), nextPageButtonHandler, RISING);
+
+  LOG_PRINTLN(F("Page control buttons initialized"));
+}
+
+void IRAM_ATTR prevPageButtonHandler(void) {
+  unsigned long buttonTime = millis();
+  if (buttonTime - lastButtonTime > BUTTON_DEBOUNCE_MS) {
+    prevPageRequested = true;
+    lastButtonTime = buttonTime;
+  }
+}
+
+void IRAM_ATTR nextPageButtonHandler(void) {
+  unsigned long buttonTime = millis();
+  if (buttonTime - lastButtonTime > BUTTON_DEBOUNCE_MS) {
+    nextPageRequested = true;
+    lastButtonTime = buttonTime;
+  }
+}
+#endif
 
 // Setup TFT display
 void setupDisplay(void) {
@@ -107,6 +146,10 @@ void setupDisplay(void) {
   tft.println("Initializing...");
 
   delay(2000);  // Show welcome screen for 2 seconds
+
+#ifdef ESP32_S3_REVERSE_TFT
+  setupPageButtons();
+#endif
 
   LOG_PRINTLN("Display initialized");
 }
@@ -921,6 +964,25 @@ void displayTask(void *pvParameters) {
 
     // Take the display mutex
     if (xSemaphoreTake(displayMutex, portMAX_DELAY) == pdTRUE) {
+
+#ifdef ESP32_S3_REVERSE_TFT
+      // Handle button-controlled page changes
+      if (prevPageRequested) {
+        current_page = (current_page == 0) ? (PAGE_COUNT - 1) : (current_page - 1);
+        resetPageDrawFlags();
+        prevPageRequested = false;
+        LOG_PRINT("Button: Previous page to: ");
+        LOG_PRINTLN(String(current_page));
+      }
+
+      if (nextPageRequested) {
+        current_page = (current_page + 1) % PAGE_COUNT;
+        resetPageDrawFlags();
+        nextPageRequested = false;
+        LOG_PRINT("Button: Next page to: ");
+        LOG_PRINTLN(String(current_page));
+      }
+#else
       // Check if it's time to change the page
       if (current_time - last_page_change >= PAGE_CHANGE_INTERVAL) {
         // Move to next page
@@ -933,6 +995,7 @@ void displayTask(void *pvParameters) {
         LOG_PRINT("Changing to page: ");
         LOG_PRINTLN(String(current_page));
       }
+#endif
 
       // Determine if we should refresh the display now
       bool should_refresh = (current_display_page != current_page) || (current_time - last_refresh >= DISPLAY_REFRESH_RATE_MS);

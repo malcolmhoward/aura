@@ -53,6 +53,13 @@ void displayEnviroPage(void);
 void displayWiFiPage(void);
 void resetPageDrawFlags(void);
 
+#ifdef ESP32_S3_REVERSE_TFT
+// Button handling for manual page control
+void setupPageButtons(void);
+void IRAM_ATTR prevPageButtonHandler(void);
+void IRAM_ATTR nextPageButtonHandler(void);
+#endif
+
 // Struct for holding sensor data for display
 typedef struct {
   // IMU data

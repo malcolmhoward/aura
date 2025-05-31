@@ -47,18 +47,6 @@
 // NeoPixel
 #include <Adafruit_NeoPixel.h>
 
-// I2C pins for ESP32-S3 TFT Feather
-#define SDA_PIN 42
-#define SCL_PIN 41
-
-// I2C pins for ESP32-S3 Feather
-//#define SDA_PIN 3
-//#define SCL_PIN 4
-
-// I2C pins for QT Py ESP32-S3
-//#define SDA_PIN 41
-//#define SCL_PIN 40
-
 // NeoPixel
 // PIN_NEOPIXEL and NEOPIXEL_POWER are defined
 #define NUMPIXELS 1
