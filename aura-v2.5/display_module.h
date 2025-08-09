@@ -34,12 +34,21 @@
 #include <WiFi.h>
 #include "config.h"
 
+// Maximum number of ESP-Now peers to display
+// If this is changed, other display elements must change too.
+#define MAX_DISPLAY_PEERS 4
+
 // Enum for display pages
 typedef enum {
   PAGE_IMU = 0,
   PAGE_GPS,
   PAGE_ENVIRO,
+#ifdef WIFI_MODE
   PAGE_WIFI,
+#endif
+#ifdef ESPNOW_MODE
+  PAGE_ESPNOW,
+#endif
   PAGE_COUNT  // Always keep this as the last item
 } display_page_t;
 
@@ -56,8 +65,8 @@ void resetPageDrawFlags(void);
 #ifdef ESP32_S3_REVERSE_TFT
 // Button handling for manual page control
 void setupPageButtons(void);
-void IRAM_ATTR prevPageButtonHandler(void);
-void IRAM_ATTR nextPageButtonHandler(void);
+void prevPageButtonHandler(void);
+void nextPageButtonHandler(void);
 #endif
 
 // Struct for holding sensor data for display
@@ -98,11 +107,21 @@ typedef struct {
   bool co2_available;
   char co2_quality_description[15];
 
+#ifdef WIFI_MODE
   // WiFi data
   char ssid[33];
   int rssi;
   char ip_address[16];
   bool is_connected;
+#endif
+
+#ifdef ESPNOW_MODE
+  // ESP-Now data
+  size_t espnow_peer_count;
+  char espnow_peers[MAX_DISPLAY_PEERS][32];  // Array of peer topics
+  uint32_t espnow_packets_received[MAX_DISPLAY_PEERS]; // Packets received
+  uint32_t espnow_packets_missed[MAX_DISPLAY_PEERS];   // Packets missed
+#endif
 } display_data_t;
 
 // Global variables to be exposed

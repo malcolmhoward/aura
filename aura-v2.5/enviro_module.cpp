@@ -196,13 +196,13 @@ String getCO2SourceAnalysis(uint16_t co2, uint16_t eco2) {
   int diff = co2 - eco2;
 
   if (diff > 400) {
-    return "Human respiration dominant";
+    return "Human respiration";
   } else if (diff > 200) {
     return "Mainly respiration";
   } else if (abs(diff) <= 200) {
     return "Mixed sources";
   } else if (diff < -200) {
-    return "Chemical sources dominant";
+    return "Chemical sources";
   }
 
   return "Unknown sources";
@@ -256,10 +256,7 @@ void enviroTask(void* pvParameters) {
       }
     }
 
-    /* Read ENS160 sensors */
-    LOG_PRINTLN("Reading ENS160");
-
-    // Read air quality data from ENS160
+    /* Read air quality data from ENS160 */
     if (ens160.measure()) {
       // Read Air Quality Index (AQI) - 1 (good) to 5 (poor)
       uint8_t aqi = ens160.getAQI();

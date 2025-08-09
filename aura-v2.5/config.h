@@ -46,6 +46,16 @@
 #define SERVER_PORT 3000
 #define SOCKET_RECONNECT_TIMEOUT_MS 5000
 
+// =========== COMMUNICATION MODE ===========
+// Choose either WIFI_MODE or ESPNOW_MODE (not both)
+//#define WIFI_MODE    // Use WiFi with MQTT/Socket
+#define ESPNOW_MODE  // Use ESP-Now communication
+
+// =========== ESP-NOW CONFIGURATION ===========
+
+// ESP-Now channel (1-14)
+#define ESPNOW_CHANNEL 1
+
 // =========== GPS CONFIGURATION ===========
 
 // Choose ONE GPS interface method
@@ -108,8 +118,8 @@
 
 #ifdef ESP32_S3_REVERSE_TFT
 // Button pins for manual page control
-#define PREV_PAGE_BUTTON_PIN 1  // D1 - Previous page (active HIGH)
-#define NEXT_PAGE_BUTTON_PIN 2  // D2 - Next page (active HIGH)
+#define PREV_PAGE_BUTTON_PIN 2  // D2 - Previous page (active HIGH)
+#define NEXT_PAGE_BUTTON_PIN 1  // D1 - Next page (active HIGH)
 #endif
 
 // Define servo angle limits
