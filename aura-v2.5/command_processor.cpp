@@ -118,7 +118,7 @@ void checkSerialCommands() {
         // Null-terminate the string
         serialBuffer[serialBufferIndex] = '\0';
         
-        // Process the command - pass ONLY the valid portion
+        // Process the command
         processCommandJson(serialBuffer, serialBufferIndex);
         
         // Clear the entire buffer explicitly

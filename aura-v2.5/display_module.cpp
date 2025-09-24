@@ -821,7 +821,7 @@ void displayEnviroPage(void) {
   tft.print(PAGE_COUNT);
 }
 
-#ifdef WIFI_MODE
+#if defined(WIFI_MODE)
 // Display WiFi status page with minimal flicker
 void displayWiFiPage(void) {
   // Static variables to track previous values
@@ -960,9 +960,7 @@ void displayWiFiPage(void) {
     prev_rssi = display_data.rssi;
   }
 }
-#endif
-
-#ifdef ESPNOW_MODE
+#elif defined(ESPNOW_MODE)
 // Display ESP-Now page
 void displayESPNowPage(void) {
   // Static variables to track previous values
@@ -1145,12 +1143,11 @@ void displayTask(void *pvParameters) {
           case PAGE_ENVIRO:
             displayEnviroPage();
             break;
-#ifdef WIFI_MODE
+#if defined(WIFI_MODE)
           case PAGE_WIFI:
             displayWiFiPage();
             break;
-#endif
-#ifdef ESPNOW_MODE
+#elif defined(ESPNOW_MODE)
           case PAGE_ESPNOW:
             displayESPNowPage();
             break;

@@ -36,8 +36,8 @@
 #include <Adafruit_NeoPixel.h>
 #include "config.h"
 
-// Maximum number of ESP-Now peers
-#define MAX_ESPNOW_PEERS 20
+// In WIFI_STA mode: max 10 encrypted peers
+#define MAX_ESPNOW_PEERS 10
 
 // ESP-Now message types
 #define ESPNOW_MSG_REGISTRATION    1  // Registration request from SPARK

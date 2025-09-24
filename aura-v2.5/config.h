@@ -125,6 +125,10 @@
 // Define servo angle limits
 #define OPEN_ANGLE_DEFAULT 0
 #define CLOSED_ANGLE_DEFAULT 77
+/* When a servo moves a heavy object (facemask), it strains to maintain that position.
+ * This causes the servo to make unwanted noise and strain the motor.
+ * If we simply back off a bit though, we can eleviate this strain and it will still hold its position.
+ * If you're having that problem, play with this value to choose the backoff amount. */
 #define OPEN_STRUGGLE_BACKOFF 3
 
 // LED configuration

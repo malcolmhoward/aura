@@ -129,12 +129,10 @@ void setup() {
   pixels.show();
 
   // Initialize communication based on selected mode
-#ifdef WIFI_MODE
+#if defined(WIFI_MODE)
   // Initialize networking
   setupNetworking(ssid, pass, CONN_RETRY_ATTEMPTS, &wifiClient, &pixels);
-#endif
-
-#ifdef ESPNOW_MODE
+#elif defined(ESPNOW_MODE)
   // Initialize ESP-Now
   // First set WiFi mode to STA (no connection)
   WiFi.mode(WIFI_STA);
@@ -241,12 +239,10 @@ void setup() {
 
 void loop() {
   // Network monitoring based on mode
-#ifdef WIFI_MODE
+#if defined(WIFI_MODE)
   // Monitor the network connection
   monitorConnection(&wifiClient, &pixels);
-#endif
-
-#ifdef ESPNOW_MODE
+#elif defined(ESPNOW_MODE)
   // Monitor ESP-Now connections
   monitorESPNowPeers(&pixels);
 #endif

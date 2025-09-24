@@ -43,10 +43,9 @@ typedef enum {
   PAGE_IMU = 0,
   PAGE_GPS,
   PAGE_ENVIRO,
-#ifdef WIFI_MODE
+#if defined(WIFI_MODE)
   PAGE_WIFI,
-#endif
-#ifdef ESPNOW_MODE
+#elif defined(ESPNOW_MODE)
   PAGE_ESPNOW,
 #endif
   PAGE_COUNT  // Always keep this as the last item
@@ -108,15 +107,13 @@ typedef struct {
   bool co2_available;
   char co2_quality_description[15];
 
-#ifdef WIFI_MODE
+#if defined(WIFI_MODE)
   // WiFi data
   char ssid[33];
   int rssi;
   char ip_address[16];
   bool is_connected;
-#endif
-
-#ifdef ESPNOW_MODE
+#elif defined(ESPNOW_MODE)
   // ESP-Now data
   size_t espnow_peer_count;
   char espnow_peers[MAX_DISPLAY_PEERS][32];  // Array of peer topics
