@@ -138,10 +138,24 @@ For detailed documentation of the code:
 2. Check the comments in each module for function-specific details
 3. Refer to the library documentation links provided above
 
+## Related Projects
+
+AURA is part of the [O.A.S.I.S. Project](https://github.com/The-OASIS-Project):
+
+| Component | Purpose |
+|-----------|---------|
+| [MIRAGE](https://github.com/The-OASIS-Project/mirage) | HUD display system |
+| [DAWN](https://github.com/The-OASIS-Project/dawn) | AI voice assistant |
+| [SPARK](https://github.com/The-OASIS-Project/spark) | Hand/gauntlet firmware |
+| [BEACON](https://github.com/The-OASIS-Project/beacon) | CAD models |
+| [GENESIS](https://github.com/The-OASIS-Project/genesis) | Python utilities |
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+
 ## License
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.
 
-## Contributing
-
-By contributing to this project, you agree to license your contributions under the GPLv3 (or any later version) or any future licenses chosen by the project author(s).
+See [LICENSE](LICENSE) for full details.
